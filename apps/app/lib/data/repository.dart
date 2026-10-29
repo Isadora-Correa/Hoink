@@ -343,4 +343,49 @@ class HoinkRepository {
   /// Lê o QR Code (link) ou a chave de acesso de uma NFC-e e devolve a prévia do gasto.
   Future<ReceiptPreview> receiptPreview(String entityId, String qr) async =>
       ReceiptPreview((await api.post('/entities/$entityId/receipts/preview', {'qr': qr}))['data']);
+
+  // ── Relatórios ──
+  Future<List<({String type, String title})>> reportTypes() async => ((await api.get('/reports'))['data'] as List)
+      .map((t) => (type: t['type'] as String, title: t['title'] as String))
+      .toList();
+
+  String _reportPath(String? entityId, String type) =>
+      entityId == null ? '/consolidated/reports/$type' : '/entities/$entityId/reports/$type';
+
+  /// Prévia (JSON) do relatório; [query]: period, ref, from, to, categoryId.
+  Future<Report> report(String? entityId, String type, Map<String, Object?> query) async =>
+      Report((await api.get(_reportPath(entityId, type), query: query))['data']);
+
+  /// Arquivo do relatório em `pdf`, `xlsx` ou `csv`, com os mesmos números da prévia.
+  Future<Uint8List?> reportFile(String? entityId, String type, String format, Map<String, Object?> query) =>
+      api.getBytes(_reportPath(entityId, type), query: {...query, 'format': format});
+
+  // ── Costelinha ──
+  Future<({bool aiEnabled, List<String> suggestions})> assistantInfo() async {
+    final d = (await api.get('/assistant'))['data'];
+    return (aiEnabled: d['aiEnabled'] as bool, suggestions: List<String>.from(d['suggestions'] as List));
+  }
+
+  Future<AssistantAnswer> ask(String? entityId, String question) async => AssistantAnswer(
+    (await api.post(entityId == null ? '/assistant/ask' : '/entities/$entityId/assistant/ask', {
+      'question': question,
+    }))['data'],
+  );
+
+  Future<({List<CompareResult> results, List<String> missing})> compareInvestments(Map<String, Object?> body) async {
+    final d = (await api.post('/assistant/compare-investments', body))['data'];
+    return (
+      results: (d['results'] as List).map((r) => CompareResult(r)).toList(),
+      missing: List<String>.from(d['missingRates'] as List),
+    );
+  }
+
+  // ── Notificações ──
+  Future<({int unread, List<AppNotification> items})> notifications() async {
+    final d = (await api.get('/notifications'))['data'];
+    return (unread: d['unread'] as int, items: (d['items'] as List).map((n) => AppNotification(n)).toList());
+  }
+
+  Future<void> markNotificationRead(String id) => api.post('/notifications/$id/read');
+  Future<void> markAllNotificationsRead() => api.post('/notifications/read-all');
 }

@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../state/providers.dart';
 import '../ui/screens/accounts/accounts_screen.dart';
 import '../ui/screens/accounts/statement_screen.dart';
+import '../ui/screens/assistant/assistant_screen.dart';
 import '../ui/screens/auth/auth_screens.dart';
 import '../ui/screens/cards/cards_screen.dart';
 import '../ui/screens/debts/debts_screen.dart';
@@ -16,8 +16,8 @@ import '../ui/screens/planning/planning_screen.dart';
 import '../ui/screens/dashboard/dashboard_screen.dart';
 import '../ui/screens/contacts/contacts_screen.dart';
 import '../ui/screens/contacts/payables_screen.dart';
-import '../ui/screens/placeholder/coming_soon_screen.dart';
 import '../ui/screens/recurring/recurring_screen.dart';
+import '../ui/screens/reports/reports_screen.dart';
 import '../ui/screens/settings/settings_screen.dart';
 import '../ui/screens/transactions/transaction_form_screen.dart';
 import '../ui/screens/transactions/transactions_screen.dart';
@@ -171,24 +171,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          GoRoute(
-            path: '/costelinha',
-            builder: (_, _) => const ComingSoonScreen(
-              title: 'Costelinha IA',
-              icon: Symbols.psychology,
-              phase: 'Fase 4',
-              description: 'Sua assistente financeira: o backend calcula os números e a Costelinha explica, sempre com base nos seus dados reais.',
-            ),
-          ),
-          GoRoute(
-            path: '/relatorios',
-            builder: (_, _) => const ComingSoonScreen(
-              title: 'Relatórios',
-              icon: Symbols.bar_chart,
-              phase: 'Fase 4',
-              description: 'Relatórios mensais, trimestrais e anuais com exportação em PDF, XLSX e CSV.',
-            ),
-          ),
+          GoRoute(path: '/costelinha', builder: (_, _) => const AssistantScreen()),
+          GoRoute(path: '/relatorios', builder: (_, _) => const ReportsScreen()),
         ],
       ),
     ],

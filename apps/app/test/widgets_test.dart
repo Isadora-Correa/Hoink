@@ -353,4 +353,41 @@ void main() {
     expect(body['notes'] as String, contains('BANANA PRATA KG'));
     expect(body['tags'], contains('nota-fiscal'));
   });
+
+  testWidgets('relatórios: escolhe tipo e período e mostra a prévia com os números da API', (tester) async {
+    final repo = FakeRepository();
+    await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
+    await tester.tap(find.text('Relatórios'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Trimestre'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('preview-report')));
+    await tester.pumpAndSettle();
+    expect(repo.reportQueries.single.$1, 'receitas-despesas');
+    expect(repo.reportQueries.single.$2, containsPair('period', 'quarter'));
+    expect(find.text('R\$ 7.800,00'), findsOneWidget);
+    expect(find.text('Resultado'), findsOneWidget);
+    expect(find.byKey(const Key('download-pdf')), findsOneWidget);
+  });
+
+  testWidgets('Costelinha responde com os fatos calculados e as fontes', (tester) async {
+    final repo = FakeRepository();
+    await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
+    await tester.tap(find.text('Costelinha IA'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Quanto posso investir este mês?'));
+    await tester.pumpAndSettle();
+    expect(repo.asked.single, 'Quanto posso investir este mês?');
+    expect(find.text('Calculado pela hoink.'), findsOneWidget);
+    expect(find.textContaining('Fontes: CDI'), findsOneWidget);
+    expect(find.text('Quais despesas aumentaram?'), findsOneWidget);
+  });
+
+  testWidgets('sino mostra notificações não lidas', (tester) async {
+    await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
+    expect(find.text('1'), findsWidgets);
+    await tester.tap(find.byKey(const Key('notifications')));
+    await tester.pumpAndSettle();
+    expect(find.text('Luz vence amanhã'), findsOneWidget);
+  });
 }

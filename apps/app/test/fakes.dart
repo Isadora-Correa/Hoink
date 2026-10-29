@@ -96,6 +96,8 @@ class FakeRepository extends HoinkRepository {
   final budgetsSaved = <(String, int, int)>[];
   List<CreditCard> cardList = [];
   final piggyActions = <(String, Map<String, Object?>)>[];
+  final asked = <String>[];
+  final reportQueries = <(String, Map<String, Object?>)>[];
   String? loginError;
   bool withBusiness = true;
 
@@ -376,6 +378,78 @@ class FakeRepository extends HoinkRepository {
     'source': 'SEFAZ',
     'alreadyRegistered': false,
   });
+
+  @override
+  Future<({int unread, List<AppNotification> items})> notifications() async => (
+    unread: 1,
+    items: [
+      AppNotification({
+        'id': 'n1',
+        'severity': 'warning',
+        'title': 'Luz vence amanhã',
+        'body': 'Valor: R\$ 250,00.',
+        'link': '/contas-a-pagar?tipo=pagar',
+        'createdAt': '2025-06-20T10:00:00Z',
+        'read': false,
+      }),
+    ],
+  );
+  @override
+  Future<void> markNotificationRead(String id) async {}
+
+  @override
+  Future<List<({String type, String title})>> reportTypes() async => [
+    (type: 'receitas-despesas', title: 'Receitas e despesas'),
+    (type: 'investimentos', title: 'Investimentos'),
+  ];
+  @override
+  Future<Report> report(String? entityId, String type, Map<String, Object?> query) async {
+    reportQueries.add((type, query));
+    return Report({
+      'type': type,
+      'title': 'Receitas e despesas',
+      'scope': 'Pessoal',
+      'period': {'from': '2025-06-01', 'to': '2025-06-30', 'label': 'Junho de 2025'},
+      'sections': [
+        {
+          'title': 'Resumo',
+          'columns': [
+            {'key': 'item', 'label': 'Item', 'type': 'text'},
+            {'key': 'valor', 'label': 'Valor (R\$)', 'type': 'money'},
+          ],
+          'rows': [
+            {'item': 'Receitas', 'valor': 780000},
+            {'item': 'Despesas', 'valor': 490000},
+          ],
+          'totals': {'item': 'Resultado', 'valor': 290000},
+        },
+      ],
+      'notes': ['Gerado pela hoink.'],
+    });
+  }
+
+  @override
+  Future<({bool aiEnabled, List<String> suggestions})> assistantInfo() async =>
+      (aiEnabled: false, suggestions: ['Quanto posso investir este mês?', 'Quais contas vencem esta semana?']);
+  @override
+  Future<AssistantAnswer> ask(String? entityId, String question) async {
+    asked.add(question);
+    return AssistantAnswer({
+      'intent': 'INVEST_CAPACITY',
+      'question': question,
+      'title': 'Quanto posso investir',
+      'text': 'Você pode separar até R\$ 2.000,00 sem que o saldo fique negativo nos próximos 30 dias.',
+      'facts': [
+        {'label': 'Pode investir com segurança', 'value': 200000, 'type': 'money'},
+        {'label': 'CDI atual (a.a.)', 'value': 1365, 'type': 'percent'},
+      ],
+      'sources': [
+        {'label': 'CDI — Banco Central (SGS)', 'date': '2025-06-19'},
+      ],
+      'suggestions': ['Quais despesas aumentaram?'],
+      'generatedBy': 'RULES',
+    });
+  }
 }
 
 Json invoiceJson(String month) => {

@@ -64,10 +64,10 @@ class ApiClient {
       _send(() => _http.put(_uri(path), headers: {..._headers(), 'Content-Type': contentType}, body: bytes));
 
   /// Baixa um conteúdo binário; retorna null em 404.
-  Future<Uint8List?> getBytes(String path) async {
+  Future<Uint8List?> getBytes(String path, {Map<String, Object?>? query}) async {
     http.Response res;
     try {
-      res = await _http.get(_uri(path), headers: _headers());
+      res = await _http.get(_uri(path, query), headers: _headers());
     } catch (_) {
       throw ApiException(0, 'NETWORK', 'Não foi possível conectar ao servidor. Verifique sua conexão.');
     }

@@ -8,6 +8,7 @@ import '../../core/dates.dart';
 import '../../state/providers.dart';
 import '../widgets/common.dart';
 import '../widgets/hoink_logo.dart';
+import '../widgets/notification_bell.dart';
 import '../widgets/scope_switcher.dart';
 import '../widgets/user_avatar.dart';
 
@@ -289,6 +290,7 @@ class _TopBarState extends ConsumerState<_TopBar> {
           ),
           const Spacer(),
           const PrivacyToggle(),
+          const NotificationBell(),
           const SizedBox(width: 8),
           FilledButton.icon(
             style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
@@ -386,6 +388,7 @@ class _MobileHeader extends ConsumerWidget {
             ),
           ),
           const PrivacyToggle(),
+          const NotificationBell(),
           if (user != null) UserMenu(name: user.name, initials: user.initials),
         ],
       ),

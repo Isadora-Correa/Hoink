@@ -57,14 +57,25 @@ class InvestmentsScreen extends ConsumerWidget {
       title: 'Investimentos',
       subtitle: 'CDB, LCI, LCA, Tesouro, fundos e ações — cada um calculado do jeito certo, sem cotações inventadas.',
       maxWidth: 1200,
-      action: entity.canWrite
-          ? FilledButton.icon(
+      action: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          OutlinedButton.icon(
+            key: const Key('compare-investments'),
+            onPressed: () => showInvestmentComparator(context, ref),
+            icon: const Icon(Symbols.compare_arrows, size: 18),
+            label: const Text('Comparar'),
+          ),
+          if (entity.canWrite)
+            FilledButton.icon(
               key: const Key('new-investment'),
               onPressed: () => showInvestmentForm(context, ref, entity.id),
               icon: const Icon(Symbols.add, size: 18),
               label: const Text('Novo investimento'),
-            )
-          : null,
+            ),
+        ],
+      ),
       children: [
         const _MarketBar(),
         const SizedBox(height: 16),
@@ -679,4 +690,169 @@ class InvestmentDetailScreen extends ConsumerWidget {
       'Registrado',
     );
   }
+}
+
+/// Linha editável do comparador.
+class _CompareRow {
+  _CompareRow(this.label, this.indexer, String rate, this.taxation) : rate = TextEditingController(text: rate);
+  String label;
+  String indexer;
+  final TextEditingController rate;
+  String taxation;
+}
+
+/// Comparador: quanto cada aplicação renderia, líquido de IR, com as taxas atuais dos índices (estimativa).
+Future<void> showInvestmentComparator(BuildContext context, WidgetRef ref) async {
+  final amount = TextEditingController(text: '10.000,00');
+  final months = TextEditingController(text: '12');
+  final rows = [
+    _CompareRow('CDB', 'CDI_PERCENT', '110', 'REGRESSIVE'),
+    _CompareRow('LCI/LCA', 'CDI_PERCENT', '92', 'EXEMPT'),
+    _CompareRow('Tesouro Prefixado', 'PREFIXED', '12', 'REGRESSIVE'),
+    _CompareRow('Tesouro IPCA+', 'IPCA_PLUS', '6,5', 'REGRESSIVE'),
+  ];
+  List<CompareResult>? results;
+  List<String> missing = const [];
+  var busy = false;
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: const Text('Comparar aplicações'),
+        content: SizedBox(
+          width: 620,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: MoneyField(
+                        controller: amount,
+                        label: 'Valor aplicado',
+                        fieldKey: const Key('compare-amount'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 130,
+                      child: TextField(
+                        controller: months,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Prazo', suffixText: 'meses'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                for (final r in rows)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(r.label, style: HoinkText.labelMd)),
+                        SizedBox(
+                          width: 90,
+                          child: TextField(
+                            controller: r.rate,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              suffixText: r.indexer == 'CDI_PERCENT'
+                                  ? '% CDI'
+                                  : (r.indexer == 'IPCA_PLUS' ? '% + IPCA' : '% a.a.'),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(r.taxation == 'EXEMPT' ? 'Isento de IR' : 'IR regressivo', style: HoinkText.bodySm),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                FilledButton(
+                  key: const Key('run-compare'),
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          final cents = parseBRLToCents(amount.text);
+                          final m = int.tryParse(months.text);
+                          if (cents == null || cents <= 0 || m == null || m < 1) {
+                            return showError(ctx, 'Informe valor e prazo');
+                          }
+                          setState(() => busy = true);
+                          try {
+                            final res = await ref.read(repositoryProvider).compareInvestments({
+                              'amountCents': cents,
+                              'months': m,
+                              'options': [
+                                for (final r in rows)
+                                  {
+                                    'label':
+                                        '${r.label} ${r.rate.text}${r.indexer == 'CDI_PERCENT' ? '% CDI' : (r.indexer == 'IPCA_PLUS' ? '% + IPCA' : '% a.a.')}',
+                                    'indexer': r.indexer,
+                                    'rateBps': ((double.tryParse(r.rate.text.replaceAll(',', '.')) ?? 0) * 100).round(),
+                                    'taxation': r.taxation,
+                                  },
+                              ],
+                            });
+                            setState(() => (results, missing) = (res.results, res.missing));
+                          } catch (e) {
+                            if (ctx.mounted) showError(ctx, e);
+                          } finally {
+                            setState(() => busy = false);
+                          }
+                        },
+                  child: const Text('Comparar'),
+                ),
+                if (results != null) ...[
+                  const SizedBox(height: 16),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      columnSpacing: 18,
+                      columns: const [
+                        DataColumn(label: Text('Aplicação')),
+                        DataColumn(label: Text('Taxa a.a.'), numeric: true),
+                        DataColumn(label: Text('Bruto'), numeric: true),
+                        DataColumn(label: Text('IR'), numeric: true),
+                        DataColumn(label: Text('Líquido'), numeric: true),
+                      ],
+                      rows: [
+                        for (final (i, r) in results!.indexed)
+                          DataRow(
+                            color: i == 0 ? const WidgetStatePropertyAll(HoinkColors.primaryFixed) : null,
+                            cells: [
+                              DataCell(Text(r.label, style: i == 0 ? HoinkText.labelMd : null)),
+                              DataCell(Text('${r.annualPct.toStringAsFixed(2).replaceAll('.', ',')}%')),
+                              DataCell(Text(formatBRL(r.grossCents))),
+                              DataCell(Text(formatBRL(r.taxCents))),
+                              DataCell(Text(formatBRL(r.netCents), style: HoinkText.labelMd)),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (missing.isNotEmpty)
+                    Text(
+                      'Sem dados do índice para: ${missing.join(', ')}.',
+                      style: HoinkText.bodySm.copyWith(color: HoinkColors.error),
+                    ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Estimativa com as taxas atuais dos índices (Banco Central), mantidas constantes no prazo. '
+                    'Não é oferta nem garantia de rentabilidade; confira as condições reais com a instituição.',
+                    style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fechar'))],
+      ),
+    ),
+  );
 }

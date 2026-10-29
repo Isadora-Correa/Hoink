@@ -1539,3 +1539,111 @@ class ReceiptPreview {
     return text.length > 990 ? '${text.substring(0, 987)}...' : text;
   }
 }
+
+// ───────────── Relatórios ─────────────
+
+class ReportColumn {
+  ReportColumn(Json j) : key = j['key'], label = j['label'], type = j['type'];
+  final String key;
+  final String label;
+
+  /// text, money, date, percent ou number.
+  final String type;
+}
+
+class ReportSection {
+  ReportSection(Json j)
+    : title = j['title'],
+      columns = (j['columns'] as List).map((c) => ReportColumn(c)).toList(),
+      rows = (j['rows'] as List).cast<Json>(),
+      totals = j['totals'] as Json?,
+      note = j['note'];
+  final String title;
+  final List<ReportColumn> columns;
+  final List<Json> rows;
+  final Json? totals;
+  final String? note;
+}
+
+class Report {
+  Report(Json j)
+    : type = j['type'],
+      title = j['title'],
+      scope = j['scope'],
+      periodLabel = (j['period'] as Json)['label'],
+      sections = (j['sections'] as List).map((s) => ReportSection(s)).toList(),
+      notes = List<String>.from(j['notes'] as List);
+  final String type;
+  final String title;
+  final String scope;
+  final String periodLabel;
+  final List<ReportSection> sections;
+  final List<String> notes;
+}
+
+// ───────────── Costelinha, notificações e comparador ─────────────
+
+class AssistantFact {
+  AssistantFact(Json j) : label = j['label'], value = j['value'], type = j['type'];
+  final String label;
+  final Object? value;
+  final String type;
+}
+
+class AssistantAnswer {
+  AssistantAnswer(Json j)
+    : intent = j['intent'],
+      question = j['question'],
+      title = j['title'],
+      text = j['text'],
+      facts = (j['facts'] as List).map((f) => AssistantFact(f)).toList(),
+      sources = (j['sources'] as List).map((s) => (label: s['label'] as String, date: s['date'] as String?)).toList(),
+      suggestions = List<String>.from(j['suggestions'] as List),
+      byAi = j['generatedBy'] == 'AI';
+  final String intent;
+  final String question;
+  final String title;
+  final String text;
+  final List<AssistantFact> facts;
+  final List<({String label, String? date})> sources;
+  final List<String> suggestions;
+  final bool byAi;
+}
+
+class AppNotification {
+  AppNotification(Json j)
+    : id = j['id'],
+      severity = j['severity'],
+      title = j['title'],
+      body = j['body'],
+      link = j['link'],
+      createdAt = DateTime.parse(j['createdAt']),
+      read = j['read'] as bool;
+  final String id;
+
+  /// info, warning, danger ou success.
+  final String severity;
+  final String title;
+  final String body;
+  final String? link;
+  final DateTime createdAt;
+  final bool read;
+}
+
+class CompareResult {
+  CompareResult(Json j)
+    : label = j['label'],
+      annualPct = (j['annualPct'] as num).toDouble(),
+      grossCents = j['grossCents'] as int,
+      taxCents = j['taxCents'] as int,
+      netCents = j['netCents'] as int,
+      netGainCents = j['netGainCents'] as int,
+      netReturnBps = j['netReturnBps'] as int;
+  final String label;
+  final double annualPct;
+  final int grossCents;
+  final int taxCents;
+  final int netCents;
+  final int netGainCents;
+  final int netReturnBps;
+}
