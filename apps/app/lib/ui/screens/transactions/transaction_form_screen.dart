@@ -77,6 +77,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
   /// Chave da nota fiscal lida (impede lançar a mesma nota duas vezes).
   String? _receiptKey;
+
+  /// "Mais opções" (estabelecimento, recorrência, tags, observações) começa recolhido.
+  late bool _moreOpen = widget.initialRecurring;
   bool _busy = false;
   bool _loading = false;
   Txn? _original;
@@ -100,6 +103,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         _type = t.type;
         _amount.text = formatAmount(t.amountCents);
         _description.text = t.description;
+        _moreOpen =
+            (t.counterparty ?? '').isNotEmpty || (t.notes ?? '').isNotEmpty || t.tags.isNotEmpty || t.isRecurring;
         _counterparty.text = t.counterparty ?? '';
         _notes.text = t.notes ?? '';
         _tags.text = t.tags.join(', ');
@@ -161,7 +166,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       final tags = _tags.text.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toSet()..add('nota-fiscal');
       _tags.text = tags.join(', ');
     });
-    showSuccess(context, 'Nota lida. Confira os dados e salve.');
+    showSuccess(
+      context,
+      p.totalCents == null
+          ? 'Loja e data preenchidas. Agora digite o valor da nota.'
+          : 'Nota lida. Confira os dados e salve.',
+    );
   }
 
   /// Compras no cartão têm fluxo próprio: escolhe-se o cartão e o número de parcelas.
@@ -596,17 +606,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                       }),
                     ),
                   ),
-                Expanded(
-                  child: Tooltip(
-                    message: 'Cofrinhos chegam na Fase 3',
-                    child: _TypeTab(
-                      label: wide ? 'Aporte Cofrinho' : 'Cofrinho',
-                      icon: Symbols.savings,
-                      active: false,
-                      onTap: null,
-                    ),
-                  ),
-                ),
               ],
             ),
           );
@@ -707,15 +706,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           field: 'description',
         ),
       ),
-      if (!isTransfer)
-        TextFormField(
-          controller: _counterparty,
-          decoration: deco(
-            _type == 'INCOME' ? 'Cliente / Pagador' : 'Estabelecimento / Beneficiário',
-            Symbols.storefront,
-          ),
-        ),
     ];
+    final counterpartyField = TextFormField(
+      controller: _counterparty,
+      decoration: deco(_type == 'INCOME' ? 'Cliente / Pagador' : 'Estabelecimento / Beneficiário', Symbols.storefront),
+    );
 
     final contactKind = _type == 'INCOME' ? 'CLIENT' : 'SUPPLIER';
     final contacts = isTransfer
@@ -998,32 +993,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   ),
                   if (_recurring) _recurrenceOptions(),
                 ],
-                if (!widget.isEdit && _type == 'EXPENSE') ...[
-                  const Divider(),
-                  ListTile(
-                    key: const Key('read-receipt'),
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Symbols.qr_code_scanner, color: HoinkColors.pine),
-                    title: Text(_receiptKey == null ? 'Ler nota fiscal' : 'Nota fiscal lida', style: HoinkText.labelMd),
-                    subtitle: Text(
-                      _receiptKey == null
-                          ? 'Preenche loja, valor, data e itens pelo QR Code do cupom'
-                          : 'Chave ${_receiptKey!.substring(0, 4)}…${_receiptKey!.substring(40)} — confira e salve',
-                    ),
-                    trailing: const Icon(Symbols.chevron_right),
-                    onTap: _readReceipt,
-                  ),
-                  const Divider(),
-                  ListTile(
-                    key: const Key('card-purchase'),
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Symbols.layers, color: HoinkColors.pine),
-                    title: Text('Compra no cartão ou parcelada', style: HoinkText.labelMd),
-                    subtitle: const Text('Lance no cartão de crédito e divida em parcelas nas próximas faturas'),
-                    trailing: const Icon(Symbols.chevron_right),
-                    onTap: _cardPurchase,
-                  ),
-                ],
               ],
             ),
           );
@@ -1069,6 +1038,34 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       ],
     );
 
+    final quickActions = !widget.isEdit && _type == 'EXPENSE'
+        ? Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                key: const Key('read-receipt'),
+                onPressed: _readReceipt,
+                icon: const Icon(Symbols.qr_code_scanner, size: 18),
+                label: Text(_receiptKey == null ? 'Ler nota fiscal' : 'Nota fiscal lida ✓'),
+              ),
+              OutlinedButton.icon(
+                key: const Key('card-purchase'),
+                onPressed: _cardPurchase,
+                icon: const Icon(Symbols.credit_card, size: 18),
+                label: const Text('Compra no cartão'),
+              ),
+            ],
+          )
+        : null;
+
+    final moreToggle = TextButton.icon(
+      key: const Key('more-options'),
+      onPressed: () => setState(() => _moreOpen = !_moreOpen),
+      icon: Icon(_moreOpen ? Symbols.expand_less : Symbols.expand_more, size: 20),
+      label: Text(_moreOpen ? 'Menos opções' : 'Mais opções (recorrência, estabelecimento, observações)'),
+    );
+
     const gap = SizedBox(height: 20);
     final formColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1086,7 +1083,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           )
         else
           for (final f in fields) ...[f, const SizedBox(height: 16)],
-        if (showContactPicker) ...[contactPicker, gap],
         if (settlements.isNotEmpty) ...[settlementHistory, gap],
         gap,
         categoryPicker,
@@ -1094,10 +1090,19 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         accountSection,
         gap,
         statusSection,
-        gap,
-        phase2,
-        gap,
-        extra,
+        if (!isTransfer) ...[
+          const SizedBox(height: 12),
+          Align(alignment: Alignment.centerLeft, child: moreToggle),
+          if (_moreOpen) ...[
+            const SizedBox(height: 8),
+            counterpartyField,
+            const SizedBox(height: 16),
+            if (showContactPicker) ...[contactPicker, const SizedBox(height: 16)],
+            phase2,
+            gap,
+          ],
+        ],
+        if (_moreOpen || isTransfer) extra,
         const SizedBox(height: 28),
         actions,
       ],
@@ -1121,6 +1126,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   ],
                   const SizedBox(height: 20),
                   typeTabs,
+                  if (quickActions != null) ...[const SizedBox(height: 12), quickActions],
                   const SizedBox(height: 20),
                   wide ? HoinkCard(padding: const EdgeInsets.all(32), child: formColumn) : formColumn,
                   const SizedBox(height: 48),

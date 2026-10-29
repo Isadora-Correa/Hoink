@@ -1512,6 +1512,8 @@ class ReceiptPreview {
       suggestedCategoryId = j['suggestedCategoryId'],
       suggestedCategoryName = j['suggestedCategoryName'],
       source = j['source'],
+      captcha = (j['captcha'] as bool?) ?? false,
+      sefazUrl = j['sefazUrl'],
       alreadyRegistered = j['alreadyRegistered'] as bool;
   final String accessKey;
   final String? issuerName;
@@ -1527,6 +1529,10 @@ class ReceiptPreview {
 
   /// SEFAZ (página oficial lida) ou QR (só os dados do QR Code; o usuário completa).
   final String source;
+
+  /// A Fazenda do estado pediu verificação anti-robô: o valor precisa ser digitado.
+  final bool captcha;
+  final String? sefazUrl;
   final bool alreadyRegistered;
 
   /// Itens como texto para as observações do lançamento.

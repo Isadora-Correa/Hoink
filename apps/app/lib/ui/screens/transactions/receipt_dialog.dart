@@ -2,11 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../app/theme.dart';
 import '../../../core/dates.dart';
-import '../../../core/money.dart';
 import '../../../data/models.dart';
 import '../../../state/providers.dart';
 import '../../widgets/common.dart';
@@ -126,6 +126,7 @@ class _PreviewView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final muted = HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant);
+    final store = p.issuerName ?? 'CNPJ ${_cnpj(p.cnpj)}';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -143,47 +144,55 @@ class _PreviewView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
-        Text(p.issuerName ?? 'Loja CNPJ ${p.cnpj}', style: HoinkText.headlineSm),
+        Text(store, style: HoinkText.headlineSm),
         Text(
           [
             if (p.issuedAt != null) formatBrDate(p.issuedAt!) else monthLabel(p.issuedMonth),
-            ?p.paymentMethod,
             ?p.suggestedCategoryName,
           ].join(' • '),
           style: muted,
         ),
         const SizedBox(height: 12),
-        if (p.totalCents != null)
-          MoneyText(p.totalCents!, style: HoinkText.headlineLg)
-        else
-          Text('Valor não disponível: informe no formulário.', style: HoinkText.bodyMd),
-        if (p.discountCents != null && p.discountCents! > 0)
-          Text('Desconto de ${formatBRL(p.discountCents!)}', style: muted),
-        if (p.items.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Text('${p.items.length} ${p.items.length == 1 ? 'item' : 'itens'}', style: HoinkText.labelMd),
-          for (final i in p.items.take(8))
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(i.description, style: HoinkText.bodySm, overflow: TextOverflow.ellipsis),
-                  ),
-                  Text(formatBRL(i.totalCents), style: HoinkText.bodySm),
-                ],
-              ),
+        if (p.totalCents != null) ...[
+          MoneyText(p.totalCents!, style: HoinkText.headlineLg),
+          if (p.items.isNotEmpty) Text('${p.items.length} ${p.items.length == 1 ? 'item' : 'itens'}', style: muted),
+        ] else
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: HoinkColors.surfaceLow,
+              borderRadius: BorderRadius.circular(HoinkRadius.md),
             ),
-          if (p.items.length > 8) Text('… e mais ${p.items.length - 8}', style: muted),
-        ],
-        const SizedBox(height: 12),
-        Text(
-          p.source == 'SEFAZ' ? 'Dados da consulta oficial da Secretaria da Fazenda. Confira antes de salvar.' : 'Não foi possível abrir a consulta da Fazenda (alguns estados pedem captcha). Usamos os dados do QR Code; complete o que faltar.',
-          style: muted,
-        ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Falta só o valor', style: HoinkText.labelMd),
+                const SizedBox(height: 4),
+                Text(
+                  p.captcha
+                      ? 'O site da Fazenda deste estado pede uma verificação "não sou robô", então a hoink. não consegue ler o valor sozinha. Confira o total no cupom (ou no site) e digite no formulário.'
+                      : 'Não conseguimos abrir a nota no site da Fazenda. Digite o total do cupom no formulário.',
+                  style: HoinkText.bodySm,
+                ),
+                if (p.sefazUrl != null) ...[
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    key: const Key('open-sefaz'),
+                    onPressed: () => launchUrl(Uri.parse(p.sefazUrl!), mode: LaunchMode.externalApplication),
+                    icon: const Icon(Symbols.open_in_new, size: 18),
+                    label: const Text('Ver nota no site da Fazenda'),
+                  ),
+                ],
+              ],
+            ),
+          ),
       ],
     );
   }
+
+  static String _cnpj(String d) => d.length == 14
+      ? '${d.substring(0, 2)}.${d.substring(2, 5)}.${d.substring(5, 8)}/${d.substring(8, 12)}-${d.substring(12)}'
+      : d;
 }
 
 /// Câmera para ler o QR Code (Android/iOS).

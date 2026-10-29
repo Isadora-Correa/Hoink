@@ -13,33 +13,62 @@ import '../widgets/scope_switcher.dart';
 import '../widgets/user_avatar.dart';
 
 class NavItem {
-  const NavItem(this.path, this.label, this.icon, {this.badge, this.iconColor});
+  const NavItem(this.path, this.label, this.icon, {this.badge, this.iconColor, this.businessOnly = false});
   final String path;
   final String label;
   final IconData icon;
   final String? badge;
   final Color? iconColor;
+  final bool businessOnly;
 }
 
-const sideNav = [
-  NavItem('/', 'Início', Symbols.grid_view),
-  NavItem('/lancamentos', 'Lançamentos', Symbols.receipt_long),
-  NavItem('/recorrencias', 'Recorrências', Symbols.event_repeat),
-  NavItem('/contas-a-pagar', 'Pagar e Receber', Symbols.request_quote),
-  NavItem('/contatos', 'Clientes e Fornecedores', Symbols.groups),
-  NavItem('/contas', 'Minhas Contas', Symbols.account_balance),
-  NavItem('/extrato', 'Extrato', Symbols.description),
-  NavItem('/cartoes', 'Cartões', Symbols.credit_card),
-  NavItem('/dividas', 'Dívidas', Symbols.credit_score),
-  NavItem('/cofrinhos', 'Cofrinhos', Symbols.savings, iconColor: HoinkColors.tertiaryFixedDim),
-  NavItem('/investimentos', 'Investimentos', Symbols.trending_up),
-  NavItem('/patrimonio', 'Patrimônio', Symbols.account_balance_wallet),
-  NavItem('/planejamento', 'Planejamento', Symbols.calendar_month),
-  NavItem('/costelinha', 'Costelinha IA', Symbols.psychology, badge: 'IA', iconColor: HoinkColors.surfaceTint),
-  NavItem('/relatorios', 'Relatórios', Symbols.bar_chart),
-  NavItem('/configuracoes', 'Configurações', Symbols.settings),
-  NavItem('/guia-de-testes', 'Guia de testes', Symbols.checklist),
+/// Menu lateral em grupos curtos. `businessOnly`: só aparece com conta profissional.
+const sideNavGroups = <(String?, List<NavItem>)>[
+  (
+    null,
+    [
+      NavItem('/', 'Início', Symbols.grid_view),
+      NavItem('/lancamentos', 'Lançamentos', Symbols.receipt_long),
+      NavItem('/contas-a-pagar', 'Pagar e Receber', Symbols.request_quote),
+    ],
+  ),
+  (
+    'Contas',
+    [
+      NavItem('/contas', 'Minhas Contas', Symbols.account_balance),
+      NavItem('/extrato', 'Extrato', Symbols.description),
+      NavItem('/cartoes', 'Cartões', Symbols.credit_card),
+    ],
+  ),
+  (
+    'Planejar',
+    [
+      NavItem('/planejamento', 'Planejamento', Symbols.calendar_month),
+      NavItem('/recorrencias', 'Contas fixas', Symbols.event_repeat),
+      NavItem('/dividas', 'Dívidas', Symbols.credit_score),
+    ],
+  ),
+  (
+    'Guardar e investir',
+    [
+      NavItem('/cofrinhos', 'Cofrinhos', Symbols.savings, iconColor: HoinkColors.tertiaryFixedDim),
+      NavItem('/investimentos', 'Investimentos', Symbols.trending_up),
+      NavItem('/patrimonio', 'Patrimônio', Symbols.account_balance_wallet),
+    ],
+  ),
+  (
+    'Mais',
+    [
+      NavItem('/costelinha', 'Costelinha', Symbols.psychology, iconColor: HoinkColors.surfaceTint),
+      NavItem('/relatorios', 'Relatórios', Symbols.bar_chart),
+      NavItem('/contatos', 'Clientes e Fornecedores', Symbols.groups, businessOnly: true),
+      NavItem('/configuracoes', 'Configurações', Symbols.settings),
+    ],
+  ),
 ];
+
+/// Todos os itens do menu (para destaque do item ativo e testes).
+final sideNav = [for (final g in sideNavGroups) ...g.$2];
 
 const bottomNav = [
   NavItem('/', 'Início', Symbols.home),
@@ -124,12 +153,13 @@ class AppShell extends ConsumerWidget {
   }
 }
 
-class _Sidebar extends StatelessWidget {
+class _Sidebar extends ConsumerWidget {
   const _Sidebar({required this.location});
   final String location;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasBusiness = ref.watch(hasBusinessProvider);
     return Container(
       width: 260,
       decoration: const BoxDecoration(
@@ -148,8 +178,24 @@ class _Sidebar extends StatelessWidget {
           const ScopeSwitcher(compact: true, expand: true),
           const SizedBox(height: 24),
           Expanded(
-            child: ListView(
-              children: [for (final n in sideNav) _SideNavTile(item: n, active: _isActive(location, n.path))],
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (title, items) in sideNavGroups) ...[
+                    if (title != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 18, 12, 6),
+                        child: Text(
+                          title.toUpperCase(),
+                          style: HoinkText.labelSm.copyWith(color: HoinkColors.outline, letterSpacing: 1),
+                        ),
+                      ),
+                    for (final n in items)
+                      if (!n.businessOnly || hasBusiness) _SideNavTile(item: n, active: _isActive(location, n.path)),
+                  ],
+                ],
+              ),
             ),
           ),
         ],

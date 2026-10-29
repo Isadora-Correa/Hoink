@@ -123,6 +123,8 @@ void main() {
 
   testWidgets('configurações oferecem foto de perfil e conta profissional', (tester) async {
     await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
+    await tester.ensureVisible(find.text('Configurações'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Configurações'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('pick-avatar')), findsOneWidget);
@@ -141,6 +143,10 @@ void main() {
     await tester.tap(find.byType(DropdownButtonFormField<String>).first);
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Nubank Ultravioleta').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('more-options')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('more-options')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('recurring-toggle')));
     await tester.pumpAndSettle();
@@ -162,7 +168,7 @@ void main() {
 
   testWidgets('tela de recorrências mostra estado vazio com ação de criar', (tester) async {
     await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
-    await tester.tap(find.text('Recorrências'));
+    await tester.tap(find.text('Contas fixas'));
     await tester.pumpAndSettle();
     expect(find.text('Nenhuma recorrência'), findsWidgets);
     expect(find.byKey(const Key('new-recurring')), findsOneWidget);
@@ -171,6 +177,8 @@ void main() {
   testWidgets('cadastra cliente com CPF/CNPJ validado no app', (tester) async {
     final repo = FakeRepository();
     await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
+    await tester.ensureVisible(find.text('Clientes e Fornecedores'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Clientes e Fornecedores'));
     await tester.pumpAndSettle();
     expect(find.text('Nenhum cliente'), findsWidgets);
@@ -373,7 +381,9 @@ void main() {
   testWidgets('Costelinha responde com os fatos calculados e as fontes', (tester) async {
     final repo = FakeRepository();
     await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
-    await tester.tap(find.text('Costelinha IA'));
+    await tester.ensureVisible(find.text('Costelinha'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Costelinha'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Quanto posso investir este mês?'));
     await tester.pumpAndSettle();
@@ -401,7 +411,8 @@ void main() {
 
   testWidgets('guia de testes lista as funcionalidades e marca o que foi testado', (tester) async {
     await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
-    await tester.ensureVisible(find.text('Guia de testes'));
+    // O guia fica no menu do usuário (avatar), não no menu lateral.
+    await tester.tap(find.byTooltip('Conta'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Guia de testes'));
     await tester.pumpAndSettle();
