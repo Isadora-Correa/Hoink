@@ -25,7 +25,7 @@ RUN flutter build web --release \
   && printf '{"name":"hoink-web","version":"%s","commit":"%s"}\n' "$APP_VERSION" "$GIT_SHA" > build/web/version.json
 
 # Imagem nginx sem privilégios de root (escuta na porta 8080).
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/build/web /usr/share/nginx/html
 # Usuário não-root (uid 101 = nginx) explícito.
