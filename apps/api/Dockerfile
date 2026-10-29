@@ -20,7 +20,7 @@ FROM deps AS build
 COPY apps/api apps/api
 RUN pnpm --filter @hoink/api exec prisma generate && pnpm --filter @hoink/api build \
   && pnpm --filter @hoink/api deploy --prod --legacy --ignore-scripts /out \
-  && cp -r apps/api/dist apps/api/prisma /out/ \
+  && cp -r apps/api/dist apps/api/prisma apps/api/assets /out/ \
   && cd /out && node node_modules/prisma/build/index.js generate
 
 # 3) Runtime enxuto, sem ferramentas de build, rodando como usuário não-root
