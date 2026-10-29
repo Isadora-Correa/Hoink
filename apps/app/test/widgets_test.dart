@@ -390,4 +390,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Luz vence amanhã'), findsOneWidget);
   });
+
+  testWidgets('extrato aparece no menu e mostra as movimentações da conta escolhida', (tester) async {
+    await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
+    await tester.tap(find.text('Extrato'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nubank Ultravioleta'), findsWidgets);
+    expect(find.text('Supermercado Pão de Açúcar'), findsOneWidget);
+  });
+
+  testWidgets('guia de testes lista as funcionalidades e marca o que foi testado', (tester) async {
+    await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
+    await tester.ensureVisible(find.text('Guia de testes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Guia de testes'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pessoal, Pro e Total'), findsOneWidget);
+    expect(find.textContaining('0 de '), findsOneWidget);
+    await tester.tap(find.byKey(const Key('guide-ambientes')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1 de '), findsOneWidget);
+  });
 }

@@ -28,6 +28,7 @@ const sideNav = [
   NavItem('/contas-a-pagar', 'Pagar e Receber', Symbols.request_quote),
   NavItem('/contatos', 'Clientes e Fornecedores', Symbols.groups),
   NavItem('/contas', 'Minhas Contas', Symbols.account_balance),
+  NavItem('/extrato', 'Extrato', Symbols.description),
   NavItem('/cartoes', 'Cartões', Symbols.credit_card),
   NavItem('/dividas', 'Dívidas', Symbols.credit_score),
   NavItem('/cofrinhos', 'Cofrinhos', Symbols.savings, iconColor: HoinkColors.tertiaryFixedDim),
@@ -37,11 +38,12 @@ const sideNav = [
   NavItem('/costelinha', 'Costelinha IA', Symbols.psychology, badge: 'IA', iconColor: HoinkColors.surfaceTint),
   NavItem('/relatorios', 'Relatórios', Symbols.bar_chart),
   NavItem('/configuracoes', 'Configurações', Symbols.settings),
+  NavItem('/guia-de-testes', 'Guia de testes', Symbols.checklist),
 ];
 
 const bottomNav = [
   NavItem('/', 'Início', Symbols.home),
-  NavItem('/lancamentos', 'Extrato', Symbols.receipt_long),
+  NavItem('/lancamentos', 'Lançamentos', Symbols.receipt_long),
   NavItem('/cofrinhos', 'Cofrinhos', Symbols.savings),
   NavItem('/investimentos', 'Investir', Symbols.trending_up),
   NavItem('/costelinha', 'Costelinha', Symbols.psychology),
@@ -339,12 +341,17 @@ class UserMenu extends ConsumerWidget {
             context.go('/patrimonio');
           case 'config':
             context.go('/configuracoes');
+          case 'extrato':
+            context.go('/extrato');
+          case 'guia':
+            context.go('/guia-de-testes');
           case 'sair':
             await ref.read(authProvider.notifier).logout();
         }
       },
       itemBuilder: (_) => const [
         PopupMenuItem(value: 'contas', child: Text('Minhas Contas')),
+        PopupMenuItem(value: 'extrato', child: Text('Extrato')),
         PopupMenuItem(value: 'recorrencias', child: Text('Recorrências')),
         PopupMenuItem(value: 'pagar', child: Text('Pagar e Receber')),
         PopupMenuItem(value: 'contatos', child: Text('Clientes e Fornecedores')),
@@ -353,6 +360,7 @@ class UserMenu extends ConsumerWidget {
         PopupMenuItem(value: 'planejamento', child: Text('Planejamento')),
         PopupMenuItem(value: 'patrimonio', child: Text('Patrimônio')),
         PopupMenuItem(value: 'config', child: Text('Configurações')),
+        PopupMenuItem(value: 'guia', child: Text('Guia de testes')),
         PopupMenuDivider(),
         PopupMenuItem(value: 'sair', child: Text('Sair')),
       ],

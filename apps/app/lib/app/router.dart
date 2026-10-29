@@ -14,6 +14,7 @@ import '../ui/screens/patrimony/patrimony_screen.dart';
 import '../ui/screens/piggy/piggy_screen.dart';
 import '../ui/screens/planning/planning_screen.dart';
 import '../ui/screens/dashboard/dashboard_screen.dart';
+import '../ui/screens/guide/test_guide_screen.dart';
 import '../ui/screens/contacts/contacts_screen.dart';
 import '../ui/screens/contacts/payables_screen.dart';
 import '../ui/screens/recurring/recurring_screen.dart';
@@ -144,6 +145,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           GoRoute(path: '/patrimonio', builder: (_, _) => const PatrimonyScreen()),
+          GoRoute(path: '/extrato', builder: (_, _) => const StatementHubScreen()),
+          GoRoute(path: '/guia-de-testes', builder: (_, _) => const TestGuideScreen()),
           GoRoute(path: '/planejamento', builder: (_, _) => const PlanningScreen()),
           GoRoute(
             path: '/cartoes',

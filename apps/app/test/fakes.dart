@@ -450,6 +450,44 @@ class FakeRepository extends HoinkRepository {
       'generatedBy': 'RULES',
     });
   }
+
+  @override
+  Future<Statement> statement(String entityId, String id, String from, String to) async => Statement.fromJson({
+    'account': fakeDashboard().accounts.first.toJsonForTests(),
+    'from': from,
+    'to': to,
+    'openingBalanceCents': 1000000,
+    'closingBalanceCents': 965000,
+    'entries': [
+      {
+        'id': 's1',
+        'transactionId': 't1',
+        'date': '2025-06-09',
+        'description': 'Supermercado Pão de Açúcar',
+        'type': 'EXPENSE',
+        'direction': 'OUT',
+        'amountCents': 35000,
+        'partial': false,
+        'category': {'id': 'c1', 'name': 'Mercado', 'icon': 'shopping_cart'},
+        'transferId': null,
+        'balanceAfterCents': 965000,
+      },
+    ],
+  });
+}
+
+extension on Account {
+  Json toJsonForTests() => {
+    'id': id,
+    'entityId': entityId,
+    'name': name,
+    'institution': institution,
+    'type': type,
+    'initialBalanceCents': initialBalanceCents,
+    'referenceDate': referenceDate,
+    'balanceCents': balanceCents,
+    'archived': archived,
+  };
 }
 
 Json invoiceJson(String month) => {

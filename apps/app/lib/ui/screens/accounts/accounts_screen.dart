@@ -256,6 +256,16 @@ class _AccountCard extends ConsumerWidget {
             'Saldo inicial ${formatBRL(a.initialBalanceCents)} em ${formatBrDate(a.referenceDate)}',
             style: HoinkText.bodySm.copyWith(color: HoinkColors.outline),
           ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: Key('statement-${a.id}'),
+              onPressed: () => context.go('/contas/${entity.id}/${a.id}'),
+              icon: const Icon(Symbols.description, size: 18),
+              label: const Text('Ver extrato'),
+            ),
+          ),
         ],
       ),
     );
