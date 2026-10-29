@@ -1,0 +1,20 @@
+name: Bug
+description: Relatar um comportamento incorreto
+labels: [bug]
+body:
+  - type: textarea
+    id: passos
+    attributes:
+      label: Passos para reproduzir
+    validations:
+      required: true
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Resultado esperado x obtido
+    validations:
+      required: true
+  - type: input
+    id: versao
+    attributes:
+      label: Versão (rodapé de Configurações ou GET /version)
