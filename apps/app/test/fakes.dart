@@ -429,8 +429,10 @@ class FakeRepository extends HoinkRepository {
   }
 
   @override
-  Future<({bool aiEnabled, List<String> suggestions})> assistantInfo() async =>
-      (aiEnabled: false, suggestions: ['Quanto posso investir este mês?', 'Quais contas vencem esta semana?']);
+  Future<List<String>> assistantSuggestions() async => [
+    'Quanto posso investir este mês?',
+    'Quais contas vencem esta semana?',
+  ];
   @override
   Future<AssistantAnswer> ask(String? entityId, String question) async {
     asked.add(question);
@@ -447,7 +449,6 @@ class FakeRepository extends HoinkRepository {
         {'label': 'CDI — Banco Central (SGS)', 'date': '2025-06-19'},
       ],
       'suggestions': ['Quais despesas aumentaram?'],
-      'generatedBy': 'RULES',
     });
   }
 

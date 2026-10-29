@@ -10,8 +10,8 @@ import '../../widgets/common.dart';
 import '../../widgets/page.dart';
 import '../reports/reports_screen.dart' show formatReportCell;
 
-final assistantInfoProvider = FutureProvider<({bool aiEnabled, List<String> suggestions})>(
-  (ref) => ref.read(repositoryProvider).assistantInfo(),
+final assistantSuggestionsProvider = FutureProvider<List<String>>(
+  (ref) => ref.read(repositoryProvider).assistantSuggestions(),
 );
 
 /// Costelinha: perguntas sobre as finanças respondidas com números calculados pela hoink.
@@ -64,9 +64,8 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final info = ref.watch(assistantInfoProvider).value;
     final wide = MediaQuery.sizeOf(context).width >= 1000;
-    final suggestions = info?.suggestions ?? const <String>[];
+    final suggestions = ref.watch(assistantSuggestionsProvider).value ?? const <String>[];
     final quick = HoinkCard(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -106,9 +105,9 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
           Text('Como a Costelinha responde', style: HoinkText.labelMd),
           const SizedBox(height: 6),
           Text(
-            'Os números são calculados pela hoink. com os seus dados (saldos, contas, faturas, cofrinhos e índices do '
-            'Banco Central). ${info?.aiEnabled == true ? 'A IA só explica esses números com outras palavras.' : 'As respostas são montadas sem IA, por regras.'} '
-            'Ela não movimenta dinheiro nem indica produtos específicos.',
+            'Perguntas sobre o seu dinheiro são respondidas com números calculados pela hoink. a partir dos seus dados '
+            '(saldos, contas, faturas, cofrinhos e índices do Banco Central). Dúvidas comuns, como "o que é o CDI", '
+            'têm respostas prontas. Não usa IA paga, não movimenta dinheiro nem indica produtos específicos.',
             style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant),
           ),
         ],
@@ -197,7 +196,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
 
     return ModulePage(
       title: 'Costelinha IA',
-      subtitle: 'Sua assistente financeira: a hoink. calcula, a Costelinha explica.',
+      subtitle: 'Sua assistente financeira: respostas prontas e cálculos feitos com os seus dados.',
       maxWidth: 1200,
       children: [
         if (wide)
@@ -272,8 +271,8 @@ class _Exchange extends StatelessWidget {
                       child: Text(a.title, style: HoinkText.labelMd.copyWith(color: HoinkColors.primary)),
                     ),
                     Pill(
-                      a.byAi ? 'Explicado por IA' : 'Calculado pela hoink.',
-                      icon: a.byAi ? Symbols.auto_awesome : Symbols.calculate,
+                      a.isReadyAnswer ? 'Resposta pronta' : 'Calculado pela hoink.',
+                      icon: a.isReadyAnswer ? Symbols.menu_book : Symbols.calculate,
                     ),
                   ],
                 ),

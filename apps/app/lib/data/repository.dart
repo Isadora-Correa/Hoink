@@ -361,10 +361,9 @@ class HoinkRepository {
       api.getBytes(_reportPath(entityId, type), query: {...query, 'format': format});
 
   // ── Costelinha ──
-  Future<({bool aiEnabled, List<String> suggestions})> assistantInfo() async {
-    final d = (await api.get('/assistant'))['data'];
-    return (aiEnabled: d['aiEnabled'] as bool, suggestions: List<String>.from(d['suggestions'] as List));
-  }
+  /// Perguntas sugeridas da Costelinha.
+  Future<List<String>> assistantSuggestions() async =>
+      List<String>.from((await api.get('/assistant'))['data']['suggestions'] as List);
 
   Future<AssistantAnswer> ask(String? entityId, String question) async => AssistantAnswer(
     (await api.post(entityId == null ? '/assistant/ask' : '/entities/$entityId/assistant/ask', {

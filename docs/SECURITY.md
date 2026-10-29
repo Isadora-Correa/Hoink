@@ -31,11 +31,10 @@ Revisão feita na Fase 5. Cada item aponta onde está implementado e como é ver
 | Índices de mercado compartilhados | Lançamento manual só com `ADMIN_TOKEN`; nunca sobrescreve o dado do Banco Central |
 | Duplicidade | `Idempotency-Key` em pagamentos/transferências/compras; nota fiscal única por ambiente |
 
-## IA (Costelinha)
+## Costelinha
 
-- A chave (`ANTHROPIC_API_KEY`) fica só no servidor; o app nunca a recebe.
-- A IA recebe apenas fatos já calculados, é instruída a não fazer contas nem indicar produtos, e qualquer falha ou
-  recusa volta para a resposta determinística. Sem chave, nenhum dado sai para a IA.
+- Não usa IA paga nem envia dados para serviços externos: as respostas são montadas no servidor com os números
+  calculados e textos prontos.
 
 ## Infraestrutura
 

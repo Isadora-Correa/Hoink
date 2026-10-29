@@ -1598,8 +1598,7 @@ class AssistantAnswer {
       text = j['text'],
       facts = (j['facts'] as List).map((f) => AssistantFact(f)).toList(),
       sources = (j['sources'] as List).map((s) => (label: s['label'] as String, date: s['date'] as String?)).toList(),
-      suggestions = List<String>.from(j['suggestions'] as List),
-      byAi = j['generatedBy'] == 'AI';
+      suggestions = List<String>.from(j['suggestions'] as List);
   final String intent;
   final String question;
   final String title;
@@ -1607,7 +1606,9 @@ class AssistantAnswer {
   final List<AssistantFact> facts;
   final List<({String label, String? date})> sources;
   final List<String> suggestions;
-  final bool byAi;
+
+  /// Resposta pronta (dúvida comum) × calculada com os dados do usuário.
+  bool get isReadyAnswer => intent == 'FAQ';
 }
 
 class AppNotification {

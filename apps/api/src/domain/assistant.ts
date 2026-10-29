@@ -1,6 +1,7 @@
 /**
- * Costelinha — parte determinística (funções puras): reconhecer a pergunta e calcular quanto
- * dá para investir. A IA, quando configurada, só EXPLICA números já calculados (Seção 15).
+ * Costelinha (funções puras): reconhece a pergunta, responde dúvidas comuns com textos prontos e
+ * calcula quanto dá para investir. Sem IA paga: as respostas sobre o dinheiro do usuário são
+ * montadas com números calculados pelo backend (Seção 15).
  */
 
 export type Intent =
@@ -13,6 +14,7 @@ export type Intent =
   | 'BALANCE'
   | 'BUDGETS'
   | 'DEBTS'
+  | 'FAQ'
   | 'UNKNOWN';
 
 const normalize = (s: string) =>
@@ -36,8 +38,78 @@ const RULES: [Intent, RegExp][] = [
   ['BALANCE', /saldo|quanto (eu )?tenho|dinheiro (em|na) conta/],
 ];
 
+/** Dúvidas comuns com respostas prontas (educação financeira e uso do app). */
+export const FAQ: { match: RegExp; title: string; answer: string }[] = [
+  {
+    match: /\b(o que e|que e|significa).*\bcdi\b|\bcdi\b.*(e o que|significa)/,
+    title: 'O que é o CDI',
+    answer:
+      'O CDI é a taxa que os bancos usam para emprestar dinheiro entre si, e anda junto da Selic. Muitas aplicações rendem "um percentual do CDI": 100% do CDI acompanha a taxa; 115% rende 15% a mais que ela. A hoink. busca o CDI diário no Banco Central para estimar seus rendimentos.',
+  },
+  {
+    match: /(o que e|que e|significa).*selic|selic.*(o que e|significa)/,
+    title: 'O que é a Selic',
+    answer:
+      'A Selic é a taxa básica de juros do Brasil, definida pelo Banco Central. Quando ela sobe, aplicações de renda fixa tendem a render mais e empréstimos ficam mais caros.',
+  },
+  {
+    match: /(o que e|que e|como funciona|para que serve|quanto).*(reserva de emergencia)|reserva de emergencia.*(quanto|ideal)/,
+    title: 'Reserva de emergência',
+    answer:
+      'É um dinheiro guardado para imprevistos (perda de renda, saúde, conserto). O comum é juntar de 3 a 6 meses dos seus gastos, em aplicação segura e com resgate no mesmo dia. Em Planejamento a hoink. calcula a sua meta pela média de despesas.',
+  },
+  {
+    match: /(como funciona|o que e|para que serve).*(cofrinho|lista de desejo)/,
+    title: 'Como funciona o cofrinho',
+    answer:
+      'Você cria um cofrinho para cada objetivo (reserva, viagem, PS5…) e guarda dinheiro quando quiser. Guardar é uma transferência da sua conta para o cofrinho: o dinheiro sai do saldo disponível, mas não vira despesa. Quando comprar, toque em "Comprei!" e só a compra conta como gasto.',
+  },
+  {
+    match: /fatura.*(despesa|duplic|conta duas)|(pagar|pago|paguei).*fatura/,
+    title: 'Pagar a fatura conta como despesa?',
+    answer:
+      'Não. Cada compra no cartão já é a despesa, no mês da compra (ou da parcela). Pagar a fatura é uma transferência da sua conta para o cartão — por isso o saldo cai, mas a despesa não é contada de novo.',
+  },
+  {
+    match: /(previsto|confirmado).*(diferenca|o que e)|diferenca.*(previsto|confirmado)/,
+    title: 'Previsto × confirmado',
+    answer:
+      'Confirmado é o que já está lançado com data: contas pendentes, faturas fechadas e parcelas de dívidas. Previsto é o que deve acontecer, como as próximas ocorrências de contas fixas e valores estimados. A projeção de caixa mostra os dois separados.',
+  },
+  {
+    match: /(o que e|que e|significa).*patrimonio( liquido)?|patrimonio liquido.*(o que|significa)/,
+    title: 'O que é patrimônio líquido',
+    answer:
+      'É tudo o que você tem (contas, cofrinhos, investimentos e bens) menos tudo o que deve (empréstimos, financiamentos e faturas). É diferente do saldo disponível, que é só o dinheiro em conta.',
+  },
+  {
+    match: /(imposto|ir |imposto de renda|tributa).*(investimento|cdb|lci|lca|tesouro|rendimento)|(cdb|lci|lca).*(imposto|ir\b|isent)/,
+    title: 'Imposto sobre investimentos',
+    answer:
+      'CDB, Tesouro e fundos de renda fixa pagam IR sobre o rendimento, que cai com o tempo: 22,5% até 6 meses, 20% até 1 ano, 17,5% até 2 anos e 15% depois disso (e IOF nos primeiros 30 dias). LCI, LCA e poupança são isentas para pessoa física.',
+  },
+  {
+    match: /(price|sac).*(diferenca|o que e|qual)|(diferenca|o que e).*(price|sac)|amortiza(cao|r).*(o que|como)/,
+    title: 'PRICE, SAC e amortização',
+    answer:
+      'No PRICE as parcelas são iguais; no SAC elas começam maiores e vão diminuindo. Amortizar é pagar uma parte da dívida antes: você escolhe reduzir o prazo (economiza mais juros) ou o valor das parcelas. Em Dívidas dá para simular a quitação.',
+  },
+  {
+    match: /(como|onde).*(esconder|ocultar).*(valor|saldo)|olhinho/,
+    title: 'Esconder valores',
+    answer: 'Toque no olho ao lado do sino, no topo. Todos os valores do app ficam escondidos até você tocar de novo.',
+  },
+];
+
+export function faqAnswer(question: string) {
+  const q = normalize(question);
+  return FAQ.find((f) => f.match.test(q)) ?? null;
+}
+
 export function classify(question: string): Intent {
   const q = normalize(question);
+  // Dúvidas conceituais ("o que é…", "como funciona…") têm resposta pronta.
+  if (FAQ.some((f) => f.match.test(q))) return 'FAQ';
   for (const [intent, re] of RULES) if (re.test(q)) return intent;
   return 'UNKNOWN';
 }
@@ -49,6 +121,8 @@ export const SUGGESTED_QUESTIONS = [
   'Qual cliente mais me pagou?',
   'Quais contas vencem esta semana?',
   'Meu patrimônio aumentou?',
+  'O que é o CDI?',
+  'Pagar a fatura conta como despesa?',
 ];
 
 export interface InvestCapacityInput {

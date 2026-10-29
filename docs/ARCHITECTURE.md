@@ -18,7 +18,6 @@ flowchart LR
   P[Prometheus / monitoramento]
   BCB[(Banco Central — SGS)]
   SEF[(Sefaz — NFC-e)]
-  AI[(Claude API — opcional)]
 
   W -- HTTPS + Bearer --> MW
   M -- HTTPS + Bearer --> MW
@@ -27,7 +26,6 @@ flowchart LR
   P -. GET /metrics .-> API
   S -. índices CDI/Selic/IPCA .-> BCB
   S -. consulta da nota fiscal .-> SEF
-  S -. só fatos já calculados .-> AI
 ```
 
 ## Componentes
@@ -90,9 +88,9 @@ flowchart LR
   serviços das telas, e só então convertido em PDF (pdfkit, fonte Sora), XLSX (exceljs) ou CSV (`;`, vírgula
   decimal, BOM). Textos começando com `= + - @` são escapados para evitar injeção de fórmulas em planilhas.
 - **Costelinha** (Seção 15): 1) consulta aos dados → 2) cálculos determinísticos (`domain/assistant.ts` e os
-  serviços existentes) → 3) contexto com fatos, fontes e datas → 4) explicação. A IA (SDK oficial da Anthropic) só
-  é chamada se `ANTHROPIC_API_KEY` existir, recebe apenas os fatos já calculados e é instruída a não fazer contas
-  nem indicar produtos; em erro, recusa ou ausência de chave, vale o texto determinístico. A chave nunca vai ao app.
+  serviços existentes) → 3) resposta montada com fatos, fontes e datas. Dúvidas comuns ("o que é o CDI", "pagar a
+  fatura conta como despesa?") têm respostas prontas. Não há IA paga nem chamada a serviço externo; uma IA pode ser
+  plugada no futuro só para reescrever o texto, sem fazer contas.
 - **Notificações**: os mesmos insights da Costelinha viram avisos com `dedupe_key` única por usuário, para cada
   situação ser avisada uma vez.
 - **Transferências** são duas pernas atômicas ligadas a um registro `transfers` e nunca entram em receitas/despesas
@@ -157,5 +155,5 @@ Tabelas auxiliares: `password_reset_tokens`, `idempotency_keys`, `audit_logs`, `
 | 1 — Fundação ✅ | Auth, ambientes, contas, categorias, lançamentos, transferências, dashboard |
 | 2 — Gestão financeira ✅ | Recorrências, clientes/fornecedores, contas a pagar/receber, cartões e faturas, dívidas, planejamento |
 | 3 — Patrimônio ✅ | Cofrinhos, lista de desejos e gamificação, investimentos com motores por produto, índices do Banco Central, patrimônio com snapshots |
-| 4 — Inteligência ✅ | Relatórios (PDF/XLSX/CSV), Costelinha IA (backend calcula, IA explica), insights, notificações, comparador de investimentos |
+| 4 — Inteligência ✅ | Relatórios (PDF/XLSX/CSV), Costelinha (respostas prontas e calculadas, sem IA paga), insights, notificações, comparador de investimentos |
 | 5 — Produção ✅ | Revisão de segurança (docs/SECURITY.md), E2E e carga cobrindo todas as fases, build Android no CI, preparação mobile (docs/MOBILE.md); falta escolher a hospedagem |

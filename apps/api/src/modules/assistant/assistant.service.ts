@@ -1,10 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { env } from '../../config/env';
-import { changeBps, classify, investCapacity, SUGGESTED_QUESTIONS, type Intent } from '../../domain/assistant';
+import { changeBps, classify, faqAnswer, investCapacity, SUGGESTED_QUESTIONS, type Intent } from '../../domain/assistant';
 import { applyShare } from '../../domain/consolidation';
 import { addDaysISO } from '../../domain/recurrence';
 import { monthRange, shiftMonth, todayISO } from '../../lib/dates';
-import { logger } from '../../lib/logger';
 import { prisma } from '../../lib/prisma';
 import { accountBalances } from '../accounts/balances';
 import { payables } from '../contacts/contacts.service';
@@ -36,13 +33,11 @@ export interface Answer {
   intent: Intent;
   question: string;
   title: string;
-  /** Texto pronto, montado só com números calculados pelo backend. */
+  /** Texto pronto, montado só com números calculados pelo backend (sem IA paga). */
   text: string;
   facts: Fact[];
   sources: Source[];
   suggestions: string[];
-  /** RULES: texto determinístico; AI: explicação gerada pela IA a partir dos mesmos fatos. */
-  generatedBy: 'RULES' | 'AI';
 }
 
 const brl = (cents: number) => (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -53,7 +48,7 @@ const today = () => todayISO();
 
 // ───────────── 1 e 2: consulta + cálculos determinísticos, por pergunta ─────────────
 
-type Partial = Omit<Answer, 'question' | 'suggestions' | 'generatedBy' | 'intent'>;
+type Partial = Omit<Answer, 'question' | 'suggestions' | 'intent'>;
 
 async function investCapacityAnswer(s: Scope): Promise<Partial> {
   const cf = await cashflow(s.entities.map((e) => ({ entityId: e.id, shareBps: e.shareBps })));
@@ -287,7 +282,7 @@ async function debtsAnswer(s: Scope): Promise<Partial> {
   };
 }
 
-const BUILDERS: Record<Exclude<Intent, 'UNKNOWN'>, (s: Scope) => Promise<Partial>> = {
+const BUILDERS: Record<Exclude<Intent, 'UNKNOWN' | 'FAQ'>, (s: Scope) => Promise<Partial>> = {
   INVEST_CAPACITY: investCapacityAnswer,
   EXPENSE_GROWTH: expenseGrowthAnswer,
   PIGGY_YIELD: piggyYieldAnswer,
@@ -299,58 +294,15 @@ const BUILDERS: Record<Exclude<Intent, 'UNKNOWN'>, (s: Scope) => Promise<Partial
   DEBTS: debtsAnswer,
 };
 
-// ───────────── 4: explicação pela IA (opcional) ─────────────
-
-const SYSTEM_PROMPT = `Você é a Costelinha, assistente financeira do app hoink.
-Explique para a pessoa, em português do Brasil, em no máximo 4 frases curtas e com tom acolhedor, a resposta à pergunta dela.
-Use somente os números e fatos fornecidos em <fatos> e <resposta_calculada>: eles foram calculados pelo sistema e estão corretos.
-Não faça contas novas, não invente valores, produtos, taxas ou ofertas, e não prometa rentabilidade.
-Não recomende produtos financeiros específicos nem movimente dinheiro. Se os fatos não bastarem para responder, diga o que falta.`;
-
-let client: Anthropic | null = null;
-function aiClient() {
-  if (!env.ANTHROPIC_API_KEY) return null;
-  client ??= new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, timeout: 20_000, maxRetries: 1 });
-  return client;
-}
-
-/** Pede à IA uma explicação dos fatos já calculados. Qualquer falha devolve null (fica o texto determinístico). */
-async function explainWithAi(question: string, base: Partial): Promise<string | null> {
-  const ai = aiClient();
-  if (!ai) return null;
-  try {
-    const response = await ai.beta.messages.create({
-      model: env.ASSISTANT_MODEL,
-      max_tokens: 1024,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      output_config: { effort: 'low' },
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: `<pergunta>${question}</pergunta>\n<fatos>${JSON.stringify(base.facts)}</fatos>\n<fontes>${JSON.stringify(base.sources)}</fontes>\n<resposta_calculada>${base.text}</resposta_calculada>`,
-        },
-      ],
-    });
-    if (response.stop_reason === 'refusal') return null;
-    const text = response.content
-      .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === 'text')
-      .map((b) => b.text)
-      .join('')
-      .trim();
-    return text || null;
-  } catch (err) {
-    if (err instanceof Anthropic.APIError) logger.warn({ status: err.status }, 'IA indisponível; usando resposta determinística');
-    else logger.warn({ err }, 'IA indisponível; usando resposta determinística');
-    return null;
-  }
-}
-
 // ───────────── 3: contexto + orquestração ─────────────
 
 export async function ask(scope: Scope, question: string): Promise<Answer> {
   const intent = classify(question);
+  const others = (i: Intent) => SUGGESTED_QUESTIONS.filter((q) => classify(q) !== i).slice(0, 3);
+  if (intent === 'FAQ') {
+    const faq = faqAnswer(question)!;
+    return { intent, question, title: faq.title, text: faq.answer, facts: [], sources: [], suggestions: others(intent) };
+  }
   if (intent === 'UNKNOWN') {
     return {
       intent,
@@ -360,23 +312,14 @@ export async function ask(scope: Scope, question: string): Promise<Answer> {
       facts: [],
       sources: [],
       suggestions: SUGGESTED_QUESTIONS,
-      generatedBy: 'RULES',
     };
   }
   const base = await BUILDERS[intent](scope);
-  const ai = await explainWithAi(question, base);
-  return {
-    intent,
-    question,
-    ...base,
-    text: ai ?? base.text,
-    suggestions: SUGGESTED_QUESTIONS.filter((q) => classify(q) !== intent).slice(0, 3),
-    generatedBy: ai ? 'AI' : 'RULES',
-  };
+  return { intent, question, ...base, suggestions: others(intent) };
 }
 
 export function assistantInfo() {
-  return { aiEnabled: !!env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_API_KEY ? env.ASSISTANT_MODEL : null, suggestions: SUGGESTED_QUESTIONS };
+  return { suggestions: SUGGESTED_QUESTIONS };
 }
 
 // ───────────── Insights (cartões do dashboard e notificações) ─────────────

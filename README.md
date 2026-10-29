@@ -36,7 +36,7 @@ conta transferências internas como receita ou despesa.
 | Nota fiscal | Lê o QR Code do cupom (NFC-e) pela câmera ou pelo link/chave colados, consulta a nota no site da Sefaz (somente domínios gov.br) e preenche loja, valor, data, categoria sugerida e itens; a mesma nota não é lançada duas vezes |
 | Privacidade | Olhinho no topo de todas as telas esconde todos os valores, inclusive gastos e gráficos |
 | Relatórios (Fase 4) | 11 relatórios (receitas e despesas, fluxo de caixa, clientes, a receber, a pagar, dívidas, cofrinhos, investimentos, rendimentos, patrimônio, orçamentos) mensais, trimestrais, anuais ou personalizados, filtráveis por ambiente e categoria, em **PDF, XLSX e CSV** com os mesmos números da tela |
-| Costelinha IA (Fase 4) | Responde perguntas como "Quanto posso investir?", "Quais despesas aumentaram?", "Qual cliente mais me pagou?" — o backend calcula, a IA (opcional) só explica; sem chave de API, respostas determinísticas gratuitas, com fontes e datas |
+| Costelinha (Fase 4) | Responde "Quanto posso investir?", "Quais despesas aumentaram?", "Qual cliente mais me pagou?", "Quais contas vencem esta semana?" com números calculados a partir dos seus dados (com fontes e datas), e dúvidas comuns ("o que é o CDI?") com respostas prontas — gratuita, sem IA paga |
 | Notificações e insights (Fase 4) | Contas e faturas vencendo, contas atrasadas, orçamento estourado e saldo negativo previsto, sem avisos repetidos |
 | Comparador de investimentos (Fase 4) | CDB × LCI/LCA × Tesouro prefixado/IPCA+ para um valor e prazo, líquido de IR, com as taxas atuais do Banco Central (estimativa) |
 

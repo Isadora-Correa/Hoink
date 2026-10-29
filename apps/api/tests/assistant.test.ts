@@ -1,23 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { env } from '../src/config/env';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { classify } from '../src/domain/assistant';
 import { addDaysISO } from '../src/domain/recurrence';
 import { todayISO } from '../src/lib/dates';
 import { resetThrottle } from '../src/modules/notifications/notifications.service';
 import { categoryId, createAccount, createUser, resetDb, type TestUser } from './helpers';
-
-// IA simulada: registra o que foi enviado e devolve um texto fixo.
-const create = vi.fn();
-vi.mock('@anthropic-ai/sdk', () => {
-  class APIError extends Error {
-    status = 500;
-  }
-  class Anthropic {
-    static APIError = APIError;
-    beta = { messages: { create } };
-  }
-  return { default: Anthropic };
-});
 
 let u: TestUser;
 let base: string;
@@ -27,13 +13,9 @@ const today = todayISO();
 beforeEach(async () => {
   await resetDb();
   resetThrottle();
-  create.mockReset();
   u = await createUser();
   base = `/api/entities/${u.personalId}`;
   acc = await createAccount(u, u.personalId, 300_000);
-});
-afterEach(() => {
-  env.ANTHROPIC_API_KEY = undefined;
 });
 
 const ask = (question: string, path = base) => u.api.post(`${path}/assistant/ask`, { question });
@@ -53,7 +35,7 @@ describe('Costelinha — perguntas', () => {
     const in5 = addDaysISO(today, 5);
     await u.api.post(`${base}/transactions`, { type: 'EXPENSE', description: 'Aluguel', amountCents: 100_000, accountId: acc.id, status: 'PENDING', competenceDate: in5, dueDate: in5 });
     const r = (await ask('Quanto posso investir este mês?')).body.data;
-    expect(r).toMatchObject({ intent: 'INVEST_CAPACITY', generatedBy: 'RULES' });
+    expect(r).toMatchObject({ intent: 'INVEST_CAPACITY' });
     const fact = (label: string) => r.facts.find((f: { label: string }) => f.label === label).value;
     expect(fact('Saldo disponível hoje')).toBe(300_000);
     expect(fact('Menor saldo previsto em 30 dias')).toBe(200_000);
@@ -90,31 +72,18 @@ describe('Costelinha — perguntas', () => {
 
     const unknown = (await ask('Qual a capital da França?')).body.data;
     expect(unknown).toMatchObject({ intent: 'UNKNOWN' });
-    expect(unknown.suggestions).toHaveLength(6);
+    expect(unknown.suggestions).toHaveLength(8);
   });
 
-  it('com chave de IA: a IA só explica os fatos calculados; se falhar, vale a resposta determinística', async () => {
-    env.ANTHROPIC_API_KEY = 'chave-de-teste';
-    create.mockResolvedValueOnce({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'Você tem R$ 3.000,00 disponíveis.' }] });
-    const r = (await ask('Qual meu saldo?')).body.data;
-    expect(r).toMatchObject({ generatedBy: 'AI', text: 'Você tem R$ 3.000,00 disponíveis.' });
-    const sent = create.mock.calls[0]![0];
-    expect(sent.system).toContain('Não faça contas novas');
-    expect(sent.messages[0].content).toContain('<fatos>');
-    expect(sent.messages[0].content).toContain('300000');
-
-    create.mockResolvedValueOnce({ stop_reason: 'refusal', content: [] });
-    expect((await ask('Qual meu saldo?')).body.data.generatedBy).toBe('RULES');
-    create.mockRejectedValueOnce(new Error('timeout'));
-    const fallback = (await ask('Qual meu saldo?')).body.data;
-    expect(fallback).toMatchObject({ generatedBy: 'RULES' });
-    expect(fallback.text.replace(/\u00a0/g, ' ')).toContain('R$ 3.000,00');
-  });
-
-  it('sem chave, a IA nunca é chamada', async () => {
-    await ask('Qual meu saldo?');
-    expect(create).not.toHaveBeenCalled();
-    expect((await u.api.get('/api/assistant')).body.data).toMatchObject({ aiEnabled: false, model: null });
+  it('dúvidas comuns têm respostas prontas, sem IA paga', async () => {
+    expect(classify('O que é o CDI?')).toBe('FAQ');
+    expect(classify('Pagar a fatura conta como despesa?')).toBe('FAQ');
+    expect(classify('qual a diferença entre PRICE e SAC?')).toBe('FAQ');
+    const r = (await ask('O que é o CDI?')).body.data;
+    expect(r).toMatchObject({ intent: 'FAQ', title: 'O que é o CDI', facts: [] });
+    expect(r.text).toContain('Banco Central');
+    const info = (await u.api.get('/api/assistant')).body.data;
+    expect(info).toEqual({ suggestions: expect.arrayContaining(['O que é o CDI?']) });
   });
 });
 
