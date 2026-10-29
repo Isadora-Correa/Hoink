@@ -2,7 +2,7 @@
 # Imagem da API hoink. — build a partir da raiz do repositório:
 #   docker build -f apps/api/Dockerfile -t hoink-api .
 
-FROM node:24-bookworm-slim AS base
+FROM node:25-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
 RUN corepack enable && apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
@@ -24,7 +24,7 @@ RUN pnpm --filter @hoink/api exec prisma generate && pnpm --filter @hoink/api bu
   && cd /out && node node_modules/prisma/build/index.js generate
 
 # 3) Runtime enxuto, sem ferramentas de build, rodando como usuário não-root
-FROM node:24-bookworm-slim AS runtime
+FROM node:25-bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 ARG APP_VERSION=0.1.0
