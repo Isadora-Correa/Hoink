@@ -235,6 +235,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 16),
               PasswordField(controller: _password, autofill: AutofillHints.password, onSubmitted: _submit),
+              const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
@@ -242,7 +243,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: const Text('Esqueci minha senha'),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               FilledButton(
                 key: const Key('login-submit'),
                 onPressed: _busy ? null : _submit,
@@ -412,6 +413,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 24),
           FilledButton(onPressed: _busy ? null : _submit, child: const Text('Enviar código')),
+          const SizedBox(height: 12),
           TextButton(onPressed: () => context.go('/login'), child: const Text('Voltar ao login')),
         ],
       ),
@@ -477,6 +479,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
           ),
           const SizedBox(height: 24),
           FilledButton(onPressed: _busy ? null : _submit, child: const Text('Redefinir senha')),
+          const SizedBox(height: 12),
           TextButton(onPressed: () => context.go('/login'), child: const Text('Voltar ao login')),
         ],
       ),

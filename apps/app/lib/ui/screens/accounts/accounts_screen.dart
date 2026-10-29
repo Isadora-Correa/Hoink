@@ -11,6 +11,7 @@ import '../../../data/models.dart';
 import '../../../state/providers.dart';
 import '../../shell/app_shell.dart';
 import '../../widgets/common.dart';
+import '../../../core/money_input.dart';
 
 class AccountsScreen extends ConsumerWidget {
   const AccountsScreen({super.key});
@@ -318,6 +319,7 @@ Future<void> showAccountForm(BuildContext context, WidgetRef ref, String entityI
               TextFormField(
                 controller: initial,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                inputFormatters: [BrlInputFormatter(allowNegative: true)],
                 validator: (v) => (v ?? '').trim().isEmpty || parseBRLToCents(v!) != null ? null : 'Valor inválido',
                 decoration: const InputDecoration(labelText: 'Saldo na data de referência', prefixText: 'R\$ '),
               ),
@@ -388,6 +390,7 @@ Future<void> _reconcile(BuildContext context, WidgetRef ref, String entityId, Ac
               TextField(
                 controller: ctrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                inputFormatters: [BrlInputFormatter(allowNegative: true)],
                 decoration: const InputDecoration(labelText: 'Saldo no banco', prefixText: 'R\$ '),
               ),
               const SizedBox(height: 8),

@@ -233,70 +233,72 @@ class _CashChart extends StatelessWidget {
         const SizedBox(height: 12),
         SizedBox(
           height: 220,
-          child: LineChart(
-            LineChartData(
-              minY: minV - pad,
-              maxY: maxV + pad,
-              borderData: FlBorderData(show: false),
-              gridData: FlGridData(
-                drawVerticalLine: false,
-                getDrawingHorizontalLine: (_) =>
-                    const FlLine(color: HoinkColors.surfaceHigh, strokeWidth: 1, dashArray: [4, 4]),
-              ),
-              extraLinesData: ExtraLinesData(
-                horizontalLines: [
-                  if (minV < 0) HorizontalLine(y: 0, color: HoinkColors.error.withValues(alpha: 0.5), strokeWidth: 1),
-                ],
-              ),
-              titlesData: FlTitlesData(
-                topTitles: const AxisTitles(),
-                rightTitles: const AxisTitles(),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 56,
-                    getTitlesWidget: (v, meta) => v == meta.max || v == meta.min
-                        ? const SizedBox()
-                        : Text(_compact(v), style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant)),
-                  ),
+          child: PrivacyBlur(
+            child: LineChart(
+              LineChartData(
+                minY: minV - pad,
+                maxY: maxV + pad,
+                borderData: FlBorderData(show: false),
+                gridData: FlGridData(
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (_) =>
+                      const FlLine(color: HoinkColors.surfaceHigh, strokeWidth: 1, dashArray: [4, 4]),
                 ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    interval: step,
-                    reservedSize: 28,
-                    getTitlesWidget: (v, _) {
-                      final i = v.toInt();
-                      if (i < 0 || i >= points.length) return const SizedBox();
-                      final d = parseIso(points[i].date);
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}',
-                          style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              lineTouchData: LineTouchData(
-                touchTooltipData: LineTouchTooltipData(
-                  getTooltipColor: (_) => HoinkColors.charcoal,
-                  getTooltipItems: (spots) => [
-                    for (final s in spots)
-                      LineTooltipItem(
-                        '${s.barIndex == 0 ? formatBrDate(points[s.x.toInt()].date) : ''}${s.barIndex == 0 ? '\n' : ''}'
-                        '${s.barIndex == 0 ? 'Confirmado' : 'Com previstos'}: ${formatBRL(s.y.round())}',
-                        HoinkText.bodySm.copyWith(color: HoinkColors.ivory),
-                      ),
+                extraLinesData: ExtraLinesData(
+                  horizontalLines: [
+                    if (minV < 0) HorizontalLine(y: 0, color: HoinkColors.error.withValues(alpha: 0.5), strokeWidth: 1),
                   ],
                 ),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(),
+                  rightTitles: const AxisTitles(),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 56,
+                      getTitlesWidget: (v, meta) => v == meta.max || v == meta.min
+                          ? const SizedBox()
+                          : Text(_compact(v), style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant)),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: step,
+                      reservedSize: 28,
+                      getTitlesWidget: (v, _) {
+                        final i = v.toInt();
+                        if (i < 0 || i >= points.length) return const SizedBox();
+                        final d = parseIso(points[i].date);
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}',
+                            style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (_) => HoinkColors.charcoal,
+                    getTooltipItems: (spots) => [
+                      for (final s in spots)
+                        LineTooltipItem(
+                          '${s.barIndex == 0 ? formatBrDate(points[s.x.toInt()].date) : ''}${s.barIndex == 0 ? '\n' : ''}'
+                          '${s.barIndex == 0 ? 'Confirmado' : 'Com previstos'}: ${formatBRL(s.y.round())}',
+                          HoinkText.bodySm.copyWith(color: HoinkColors.ivory),
+                        ),
+                    ],
+                  ),
+                ),
+                lineBarsData: [
+                  line([for (final p in points) p.confirmedCents], HoinkColors.pine),
+                  line([for (final p in points) p.projectedCents], HoinkColors.pigPink, dashed: true),
+                ],
               ),
-              lineBarsData: [
-                line([for (final p in points) p.confirmedCents], HoinkColors.pine),
-                line([for (final p in points) p.projectedCents], HoinkColors.pigPink, dashed: true),
-              ],
             ),
           ),
         ),
@@ -305,6 +307,7 @@ class _CashChart extends StatelessWidget {
   }
 
   static String _compact(double cents) {
+    if (Privacy.hidden) return '••';
     final v = cents / 100;
     if (v.abs() >= 1000) return 'R\$ ${(v / 1000).toStringAsFixed(v.abs() >= 10000 ? 0 : 1).replaceAll('.', ',')} mil';
     return 'R\$ ${v.toStringAsFixed(0)}';

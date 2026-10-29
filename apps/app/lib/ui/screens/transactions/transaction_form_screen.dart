@@ -16,6 +16,7 @@ import '../../widgets/icons.dart';
 import '../cards/cards_screen.dart' show cardsProvider, showPurchaseForm;
 import '../contacts/contacts_screen.dart' show contactsProvider;
 import 'transactions_screen.dart' show settleDialog;
+import '../../../core/money_input.dart';
 
 /// Cadastro e edição de lançamentos (protótipo "Novo Lançamento" / "Cadastrar Nova Despesa").
 class TransactionFormScreen extends ConsumerStatefulWidget {
@@ -611,6 +612,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             controller: _amount,
             autofocus: !widget.isEdit,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [BrlInputFormatter()],
             style: HoinkText.displayHero.copyWith(
               color: Colors.white,
               fontFeatures: const [FontFeature.tabularFigures()],
@@ -899,6 +901,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 TextFormField(
                   controller: _settledPartial,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [BrlInputFormatter()],
                   validator: (v) {
                     final p = parseBRLToCents(v ?? '');
                     final total = parseBRLToCents(_amount.text) ?? 0;

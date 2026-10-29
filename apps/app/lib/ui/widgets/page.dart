@@ -9,6 +9,7 @@ import '../../data/models.dart';
 import '../../state/providers.dart';
 import '../shell/app_shell.dart';
 import 'common.dart';
+import '../../core/money_input.dart';
 
 /// Estrutura padrão das telas de módulo: título, subtítulo, ação principal e conteúdo centralizado.
 class ModulePage extends StatelessWidget {
@@ -227,6 +228,7 @@ class MoneyField extends StatelessWidget {
     key: fieldKey,
     controller: controller,
     keyboardType: const TextInputType.numberWithOptions(decimal: true),
+    inputFormatters: [BrlInputFormatter()],
     decoration: InputDecoration(labelText: label, prefixText: 'R\$ ', helperText: helper, helperMaxLines: 2),
   );
 }

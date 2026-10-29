@@ -1,10 +1,12 @@
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../core/api_client.dart';
 import '../core/config.dart';
 import '../core/dates.dart';
+import '../core/money.dart';
 import '../core/token_storage.dart';
 import '../data/models.dart';
 import '../data/repository.dart';
@@ -91,6 +93,39 @@ class MonthController extends Notifier<String> {
 }
 
 final monthProvider = NotifierProvider<MonthController, String>(MonthController.new);
+
+final secureStorageProvider = Provider<FlutterSecureStorage>((_) => const FlutterSecureStorage());
+
+/// Olhinho: esconde todos os valores do app (saldos, gastos, faturas, gráficos). Preferência salva no aparelho.
+class HideValues extends Notifier<bool> {
+  static const _key = 'hoink.hide_values';
+  @override
+  bool build() {
+    _load();
+    return Privacy.hidden;
+  }
+
+  Future<void> _load() async {
+    try {
+      final saved = await ref.read(secureStorageProvider).read(key: _key);
+      if (saved == 'true' && !state) _set(true);
+    } catch (_) {
+      // Sem armazenamento disponível (ex.: testes): fica só em memória.
+    }
+  }
+
+  void _set(bool v) {
+    Privacy.hidden = v;
+    state = v;
+  }
+
+  void toggle() {
+    _set(!state);
+    ref.read(secureStorageProvider).write(key: _key, value: '$state').catchError((_) {});
+  }
+}
+
+final hideValuesProvider = NotifierProvider<HideValues, bool>(HideValues.new);
 
 /// Incrementado após qualquer alteração de dados para recarregar as consultas dependentes.
 class DataVersion extends Notifier<int> {

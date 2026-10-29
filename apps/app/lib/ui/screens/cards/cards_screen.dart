@@ -738,11 +738,15 @@ Future<void> showPayInvoice(BuildContext context, WidgetRef ref, CreditCard card
               Text('Falta pagar ${formatBRL(inv.remainingCents)}', style: HoinkText.bodyMd),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: from,
                 decoration: const InputDecoration(labelText: 'Pagar com a conta'),
                 items: [
                   for (final a in accounts)
-                    DropdownMenuItem(value: a.id, child: Text('${a.name} (${formatBRL(a.balanceCents)})')),
+                    DropdownMenuItem(
+                      value: a.id,
+                      child: Text('${a.name} (${formatBRL(a.balanceCents)})', overflow: TextOverflow.ellipsis),
+                    ),
                 ],
                 onChanged: (v) => setState(() => from = v),
               ),

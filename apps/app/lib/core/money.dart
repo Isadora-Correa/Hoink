@@ -5,7 +5,15 @@ final _number = NumberFormat.decimalPatternDigits(locale: 'pt_BR', decimalDigits
 
 /// Todos os valores trafegam em centavos inteiros; nunca usamos double para dinheiro,
 /// exceto na exibição final.
+/// Modo privacidade ("olhinho"): todo valor formatado para exibição vira "R$ ••••••".
+/// Campos de edição usam [formatAmount] e não são afetados.
+abstract final class Privacy {
+  static bool hidden = false;
+  static const mask = 'R\$ ••••••';
+}
+
 String formatBRL(int cents, {bool signed = false}) {
+  if (Privacy.hidden) return Privacy.mask;
   final abs = _brl.format(cents.abs() / 100).replaceAll(' ', ' ');
   if (cents < 0) return '-$abs';
   if (signed && cents > 0) return '+$abs';
