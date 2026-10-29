@@ -10,6 +10,7 @@ import '../../../data/models.dart';
 import '../../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/page.dart';
+import '../../widgets/pig_avatar.dart';
 
 final piggyBanksProvider = FutureProvider.family<List<PiggyBank>, String>((ref, entityId) async {
   ref.watch(dataVersionProvider);
@@ -68,11 +69,7 @@ Future<void> celebrate(BuildContext context, List<Achievement> unlocked) async {
           for (final a in unlocked)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: IconBadge(
-                _achievementIcons[a.icon] ?? Symbols.star,
-                background: HoinkColors.tertiaryFixed,
-                foreground: HoinkColors.tertiaryContainer,
-              ),
+              leading: _AchievementBadge(a.icon, size: 40),
               title: Text(a.title, style: HoinkText.labelMd),
               subtitle: Text([a.description, ?a.piggyName].join(' • ')),
               trailing: Text('+${a.points}', style: HoinkText.labelMd.copyWith(color: HoinkColors.surfaceTint)),
@@ -309,12 +306,7 @@ class _GamificationCard extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    const IconBadge(
-                      Symbols.savings,
-                      background: HoinkColors.tertiaryFixed,
-                      foreground: HoinkColors.tertiaryContainer,
-                      size: 44,
-                    ),
+                    const PigAvatar(size: 48),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -366,13 +358,7 @@ class _GamificationCard extends ConsumerWidget {
                     for (final a in g.unlocked.take(6))
                       Tooltip(
                         message: '${a.title}${a.piggyName == null ? '' : ' • ${a.piggyName}'}',
-                        child: IconBadge(
-                          _achievementIcons[a.icon] ?? Symbols.star,
-                          size: 32,
-                          radius: 16,
-                          background: HoinkColors.tertiaryFixed,
-                          foreground: HoinkColors.tertiaryContainer,
-                        ),
+                        child: _AchievementBadge(a.icon, size: 32),
                       ),
                     for (final a in g.locked.take(3))
                       Tooltip(
@@ -1105,5 +1091,32 @@ class _PiggyDetailScreenState extends ConsumerState<PiggyDetailScreen> {
     } catch (e) {
       if (mounted) showError(context, e);
     }
+  }
+}
+
+/// Medalha de conquista: as de cofrinho usam o porquinho da marca; as demais, um ícone.
+class _AchievementBadge extends StatelessWidget {
+  const _AchievementBadge(this.icon, {required this.size});
+  final String icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    if (icon == 'savings') {
+      return Container(
+        width: size,
+        height: size,
+        decoration: const BoxDecoration(color: HoinkColors.tertiaryFixed, shape: BoxShape.circle),
+        alignment: Alignment.center,
+        child: PigAvatar(size: size * 0.72, background: false),
+      );
+    }
+    return IconBadge(
+      _achievementIcons[icon] ?? Symbols.star,
+      size: size,
+      radius: size / 2,
+      background: HoinkColors.tertiaryFixed,
+      foreground: HoinkColors.tertiaryContainer,
+    );
   }
 }
