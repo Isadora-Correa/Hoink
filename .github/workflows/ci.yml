@@ -133,7 +133,7 @@ jobs:
         run: |
           pnpm --filter @hoink/api exec prisma migrate deploy
           pnpm --filter @hoink/api build
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: web-build-e2e
           path: web
