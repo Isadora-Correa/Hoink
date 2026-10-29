@@ -72,4 +72,5 @@ curl http://localhost:3333/version   # confere o commit
 ## Hospedagem
 
 O pipeline independe do provedor: qualquer serviço que rode uma imagem Docker e ofereça webhook de deploy
-(ou que puxe a tag `latest` do GHCR) funciona. A escolha da hospedagem gratuita será documentada aqui.
+(ou que puxe a tag `latest` do GHCR) funciona. Sugestão gratuita (Render + Neon) e alternativas, passo a passo:
+[HOSPEDAGEM.md](HOSPEDAGEM.md).
