@@ -74,8 +74,8 @@ async function main() {
   const day = (m: string, d: number) => `${m}-${String(d).padStart(2, '0')}`;
   const today = todayISO();
 
-  const nubank = await createAccount(ctxPF, { name: 'Nubank Ultravioleta', institution: 'Nubank', type: 'CHECKING', initialBalanceCents: 320000, referenceDate: start });
-  const itau = await createAccount(ctxPF, { name: 'Itaú Personnalité', institution: 'Itaú', type: 'CHECKING', initialBalanceCents: 150000, referenceDate: start });
+  const nubank = await createAccount(ctxPF, { name: 'Nubank Ultravioleta', institution: 'Nubank', type: 'CHECKING', initialBalanceCents: 900000, referenceDate: start });
+  const itau = await createAccount(ctxPF, { name: 'Itaú Personnalité', institution: 'Itaú', type: 'CHECKING', initialBalanceCents: 450000, referenceDate: start });
   const inter = await createAccount(ctxPJ, { name: 'Banco Inter PJ', institution: 'Inter', type: 'PAYMENT', initialBalanceCents: 500000, referenceDate: start });
 
   const cats = await prisma.category.findMany({ where: { entityId: { in: [pf, pj] } } });
@@ -171,7 +171,7 @@ async function main() {
   await updateReserve(ctxPF, { targetMonths: 6, accountIds: [reserva.id] });
 
   // Cartão de crédito com compras à vista e parceladas; faturas vencidas já pagas pela conta.
-  const card = await createCard(ctxPF, { name: 'Nubank Roxinho', institution: 'Nubank', brand: 'Mastercard', limitCents: 1200000, closingDay: 3, dueDay: 10, paymentAccountId: nubank.id, color: '#6C3643' });
+  const card = await createCard(ctxPF, { name: 'Nubank Roxinho', institution: 'Nubank', brand: 'Mastercard', limitCents: 1200000, closingDay: 3, dueDay: 10, paymentAccountId: itau.id, color: '#6C3643' });
   const purchases: [string, number, number, string, string][] = [
     ['Notebook Dell Inspiron', 420000, 10, day(shiftMonth(month, -3), 18), 'Educação'],
     ['Passagem aérea Floripa', 135000, 3, day(shiftMonth(month, -1), 22), 'Lazer'],
@@ -185,7 +185,7 @@ async function main() {
   }
   for (const inv of (await getCard(pf, card.id)).pendingInvoices) {
     if (inv.dueDate < today && inv.id) {
-      await payInvoice(ctxPF, card.id, inv.id, { fromAccountId: nubank.id, date: inv.dueDate });
+      await payInvoice(ctxPF, card.id, inv.id, { fromAccountId: itau.id, date: inv.dueDate });
     }
   }
 
