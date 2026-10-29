@@ -63,6 +63,18 @@ flowchart LR
 - **Planejamento**: a projeção de caixa parte do saldo atual das contas de dinheiro e soma, dia a dia, os
   lançamentos em aberto e as faturas a pagar. *Confirmado* = pendentes, faturas e parcelas de dívida;
   *previsto* = ocorrências de recorrências e estimativas. Orçamentos usam as mesmas liquidações do dashboard (RN13).
+- **Cofrinhos**: como os cartões, cada cofrinho tem uma conta-razão (`PIGGY_BANK`) fora do saldo disponível.
+  Guardar e resgatar são transferências, então o dinheiro nunca está nos dois lugares. O rendimento *efetivo* é
+  lançado como receita ao confirmar o saldo do banco; o *estimado* é calculado na hora pelo índice e nunca gravado
+  (RN07). Conquistas da gamificação vêm de marcos e constância, não do número de depósitos.
+- **Investimentos**: aportes e resgates geram a perna de caixa `CONTRIBUTION`/`REDEMPTION` (não são receita nem
+  despesa). O valor vem do motor do produto (`domain/yields.ts`): renda fixa acumula o indexador dia útil a dia útil
+  a partir do último valor informado; ações/ETFs/fundos usam cotas × último preço informado, com aviso de
+  desatualizado; produtos manuais usam o último valor informado. Sem índice, não há estimativa.
+- **Índices**: CDI/Selic/IPCA vêm do SGS do Banco Central e ficam em `market_rates`. Lançar índice manualmente
+  exige `ADMIN_TOKEN`, porque vale para todos os usuários, e nunca sobrescreve o dado oficial.
+- **Patrimônio**: ativos − passivos a partir das mesmas fontes (saldos derivados, carteira, dívidas, cartões e bens
+  informados). Cada mês encerrado é gravado em `net_worth_snapshots`; o mês corrente é recalculado a cada consulta.
 - **Transferências** são duas pernas atômicas ligadas a um registro `transfers` e nunca entram em receitas/despesas
   (RN01). Entre Pessoal e Profissional exigem classificação gerencial (RN09); no Consolidado se anulam (RN10).
 - **Consolidado** pondera cada ambiente pela participação do usuário (`ownership_share_bps`), para não presumir que
@@ -105,11 +117,18 @@ erDiagram
   debt_installments |o--o| transactions : pagamento
   financial_entities ||--o{ budgets : tem
   categories ||--o{ budgets : limita
+  accounts ||--o| piggy_banks : "conta-razão"
+  users ||--o{ achievements : conquista
+  financial_entities ||--o{ investments : tem
+  investments ||--o{ investment_movements : movimenta
+  investment_movements |o--o| transactions : "perna de caixa"
+  financial_entities ||--o{ patrimony_items : "bens e dívidas"
+  financial_entities ||--o{ net_worth_snapshots : histórico
   users ||--o| user_avatars : foto
   users ||--o{ audit_logs : gera
 ```
 
-Tabelas auxiliares: `password_reset_tokens`, `idempotency_keys`, `audit_logs`, `planning_settings`.
+Tabelas auxiliares: `password_reset_tokens`, `idempotency_keys`, `audit_logs`, `planning_settings`, `market_rates`.
 
 ## Roadmap
 
@@ -117,6 +136,6 @@ Tabelas auxiliares: `password_reset_tokens`, `idempotency_keys`, `audit_logs`, `
 |---|---|
 | 1 — Fundação ✅ | Auth, ambientes, contas, categorias, lançamentos, transferências, dashboard |
 | 2 — Gestão financeira ✅ | Recorrências, clientes/fornecedores, contas a pagar/receber, cartões e faturas, dívidas, planejamento |
-| 3 — Patrimônio | Cofrinhos e metas, investimentos com motores por produto, patrimônio com snapshots |
+| 3 — Patrimônio ✅ | Cofrinhos, lista de desejos e gamificação, investimentos com motores por produto, índices do Banco Central, patrimônio com snapshots |
 | 4 — Inteligência | Relatórios (PDF/XLSX/CSV), Costelinha IA (backend calcula, IA explica), notificações |
 | 5 — Produção | Endurecimento de segurança, testes de desempenho ampliados, publicação mobile |

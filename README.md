@@ -28,9 +28,14 @@ conta transferências internas como receita ou despesa.
 | Cartões de crédito (Fase 2) | Limite usado e disponível, compras à vista e parceladas (até 48x), faturas por mês com fechamento e vencimento, pagamento total ou parcial da fatura **sem duplicar a despesa** (RN08) |
 | Dívidas (Fase 2) | Financiamentos e empréstimos PRICE ou SAC com principal, juros e encargos separados; parcelas em contas a pagar; multa e mora no pagamento; amortização extraordinária (reduz prazo ou parcela); simulação e registro de quitação antecipada |
 | Planejamento (Fase 2) | Fluxo de caixa projetado para 30/60/90 dias separando **confirmado** de **previsto**, alerta de saldo negativo, orçamentos por categoria com alertas e reserva de emergência |
+| Cofrinhos e lista de desejos (Fase 3) | Reservas, metas e desejos (PS5, drone, carro…) com preço, link e prioridade; guardar e resgatar como transferência do saldo; rendimento por % do CDI/Selic ou prefixado separando principal, rendimento confirmado, estimado, saldo bruto e líquido estimado (IR/IOF); simulação até a meta; "Comprei!" lança a compra uma única vez |
+| Gamificação (Fase 3) | Níveis de porquinho, pontos por marcos (25/50/75/100% da meta, desejo realizado, R$ 1 mil e 10 mil guardados), sequência semanal de depósitos e comemoração ao desbloquear conquistas |
+| Investimentos (Fase 3) | CDB, LCI, LCA, Tesouro, fundos, ações, ETFs e outros, com motor por produto (% CDI/Selic, prefixado, IPCA+, cotas × preço, valor manual); aportes, resgates, proventos, custos, vencimentos, IR regressivo/isenção estimados, evolução e comparação |
+| Índices de mercado (Fase 3) | CDI, Selic e IPCA do Banco Central (SGS, API pública), sincronizados a cada 12 h; dados ausentes ficam sinalizados como desatualizados — nada é inventado |
+| Patrimônio (Fase 3) | Ativos (contas, cofrinhos, investimentos, bens) − passivos (dívidas, cartões, outras obrigações), sem dupla contagem, com fotografia mensal e histórico |
+| Privacidade | Olhinho no topo de todas as telas esconde todos os valores, inclusive gastos e gráficos |
 
-Cofrinhos, metas, investimentos, Costelinha IA e relatórios aparecem no app como **"Em construção"** (Fases 3–4),
-sem dados simulados.
+Costelinha IA e relatórios aparecem no app como **"Em construção"** (Fase 4), sem dados simulados.
 
 ## Arquitetura
 
