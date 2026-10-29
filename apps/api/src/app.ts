@@ -19,6 +19,7 @@ import { contactsRouter, payablesRouter } from './modules/contacts/contacts.rout
 import { debtsRouter } from './modules/debts/debts.routes';
 import { gamificationRouter, marketRouter } from './modules/market/market.routes';
 import { piggyRouter } from './modules/piggy/piggy.routes';
+import { receiptsRouter } from './modules/receipts/receipts.routes';
 import { investmentsRouter } from './modules/investments/investments.routes';
 import { consolidatedPatrimonyRouter, patrimonyRouter } from './modules/patrimony/patrimony.routes';
 import { consolidatedPlanningRouter, planningRouter } from './modules/planning/planning.routes';
@@ -97,6 +98,7 @@ export function createApp() {
   entity.use('/debts', debtsRouter);
   entity.use('/planning', planningRouter);
   entity.use('/piggy-banks', piggyRouter);
+  entity.use('/receipts', receiptsRouter);
   entity.use('/investments', investmentsRouter);
   entity.use('/patrimony', patrimonyRouter);
   api.use('/entities/:entityId', entity);

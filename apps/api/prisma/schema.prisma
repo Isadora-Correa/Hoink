@@ -263,6 +263,8 @@ model Transaction {
   invoiceId          String?           @map("invoice_id") @db.Uuid
   purchaseId         String?           @map("purchase_id") @db.Uuid
   installmentNumber  Int?              @map("installment_number")
+  /// Chave de acesso da NFC-e/NF-e lida (44 dígitos): impede lançar a mesma nota duas vezes.
+  receiptKey         String?           @map("receipt_key")
   createdById        String            @map("created_by") @db.Uuid
   createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz

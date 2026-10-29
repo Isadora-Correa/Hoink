@@ -14,7 +14,7 @@ import {
   resolveDirection,
 } from '../../domain/transactionRules';
 import { formatDate, parseDate, todayISO } from '../../lib/dates';
-import { notFound, unprocessable } from '../../lib/errors';
+import { AppError, notFound, unprocessable } from '../../lib/errors';
 import { toCents } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
 import { recordEvent } from '../../lib/events';
@@ -67,6 +67,7 @@ export function serializeTransaction(t: Row, today = todayISO()) {
           ruleStatus: t.recurringRule.status,
         }
       : null,
+    receiptKey: t.receiptKey,
     installment: t.purchaseId ? { purchaseId: t.purchaseId, number: t.installmentNumber, invoiceId: t.invoiceId } : null,
     invoiceId: t.invoiceId,
     createdAt: t.createdAt,
@@ -130,6 +131,10 @@ export async function createTransaction(ctx: Ctx, input: TransactionCreateInput)
   return prisma.$transaction(async (tx) => {
     await validateRefs(tx, ctx.entityId, input.type, input.accountId, input.categoryId, settlement.settledDate);
     const contact = await resolveContact(tx, ctx.entityId, input.contactId);
+    if (input.receiptKey) {
+      const dup = await tx.transaction.findFirst({ where: { entityId: ctx.entityId, receiptKey: input.receiptKey, deletedAt: null } });
+      if (dup) throw new AppError(409, 'RECEIPT_ALREADY_USED', 'Esta nota fiscal já foi lançada');
+    }
     const t = await tx.transaction.create({
       data: {
         entityId: ctx.entityId,
@@ -148,6 +153,7 @@ export async function createTransaction(ctx: Ctx, input: TransactionCreateInput)
         contactId: contact?.id ?? null,
         notes: input.notes ?? null,
         tags: input.tags,
+        receiptKey: input.receiptKey ?? null,
         createdById: ctx.userId,
       },
       include,

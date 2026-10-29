@@ -79,6 +79,8 @@ export const transactionCreateSchema = z
     contactId: z.string().uuid().optional().nullable(),
     notes: z.string().max(1000).optional().nullable(),
     tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+    /** Chave de acesso da nota fiscal lida (evita lançar a mesma nota duas vezes). */
+    receiptKey: z.string().regex(/^\d{44}$/, 'Chave de acesso inválida').optional().nullable(),
   })
   .superRefine((v, ctx) => {
     if (v.status === 'PARTIAL') {
