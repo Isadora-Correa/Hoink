@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:hoink/core/money.dart';
 import 'package:hoink/core/token_storage.dart';
 import 'package:hoink/data/repository.dart';
 import 'package:hoink/main.dart';
@@ -34,6 +35,7 @@ Future<void> pumpApp(
 
 void main() {
   setUpAll(() => initializeDateFormatting('pt_BR'));
+  tearDown(() => Privacy.hidden = false);
 
   testWidgets('logo é desenhada a partir do vetor oficial', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: Center(child: HoinkLogo(height: 48))));
@@ -266,5 +268,55 @@ void main() {
     await tester.tap(find.byKey(const Key('save-budget')));
     await tester.pumpAndSettle();
     expect(repo.budgetsSaved.single, ('c1', 80000, 8000));
+  });
+
+  testWidgets('olhinho esconde todos os valores, inclusive gastos nas listas', (tester) async {
+    await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
+    await tester.tap(find.text('Pagar e Receber'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('350,00'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('privacy-toggle')).first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('350,00'), findsNothing);
+    expect(find.textContaining('••••••'), findsWidgets);
+
+    await tester.tap(find.text('Início'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('12.480'), findsNothing);
+    expect(find.textContaining('7.800'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('privacy-toggle')).first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('12.480'), findsWidgets);
+  });
+
+  testWidgets('cofrinhos: lista de desejos, gamificação e comemoração ao guardar', (tester) async {
+    final repo = FakeRepository();
+    await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
+    await tester.tap(find.text('Cofrinhos'));
+    await tester.pumpAndSettle();
+    expect(find.text('PS5 para o namorado'), findsOneWidget);
+    expect(find.text('Porquinho Poupador'), findsOneWidget);
+    expect(find.textContaining('3 semanas seguidas'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('deposit-pg1')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('piggy-amount')), '300');
+    await tester.tap(find.byKey(const Key('confirm-piggy-move')));
+    await tester.pumpAndSettle();
+    expect(repo.piggyActions.single.$1, 'deposit');
+    expect(repo.piggyActions.single.$2, containsPair('amountCents', 30000));
+    expect(find.text('Conquista desbloqueada!'), findsOneWidget);
+    expect(find.text('Metade lá!'), findsOneWidget);
+  });
+
+  testWidgets('patrimônio: ativos menos passivos e bens', (tester) async {
+    await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
+    await tester.tap(find.text('Patrimônio'));
+    await tester.pumpAndSettle();
+    expect(find.text('PATRIMÔNIO LÍQUIDO'), findsOneWidget);
+    expect(find.textContaining('65.000,00'), findsWidgets);
+    expect(find.text('Onix'), findsOneWidget);
   });
 }

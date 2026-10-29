@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../app/theme.dart';
 import '../../core/dates.dart';
 import '../../state/providers.dart';
+import '../widgets/common.dart';
 import '../widgets/hoink_logo.dart';
 import '../widgets/scope_switcher.dart';
 import '../widgets/user_avatar.dart';
@@ -30,6 +31,7 @@ const sideNav = [
   NavItem('/dividas', 'Dívidas', Symbols.credit_score),
   NavItem('/cofrinhos', 'Cofrinhos', Symbols.savings, iconColor: HoinkColors.tertiaryFixedDim),
   NavItem('/investimentos', 'Investimentos', Symbols.trending_up),
+  NavItem('/patrimonio', 'Patrimônio', Symbols.account_balance_wallet),
   NavItem('/planejamento', 'Planejamento', Symbols.calendar_month),
   NavItem('/costelinha', 'Costelinha IA', Symbols.psychology, badge: 'IA', iconColor: HoinkColors.surfaceTint),
   NavItem('/relatorios', 'Relatórios', Symbols.bar_chart),
@@ -286,6 +288,8 @@ class _TopBarState extends ConsumerState<_TopBar> {
             ),
           ),
           const Spacer(),
+          const PrivacyToggle(),
+          const SizedBox(width: 8),
           FilledButton.icon(
             style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
             onPressed: () => context.push('/lancamentos/novo'),
@@ -329,6 +333,8 @@ class UserMenu extends ConsumerWidget {
             context.go('/dividas');
           case 'planejamento':
             context.go('/planejamento');
+          case 'patrimonio':
+            context.go('/patrimonio');
           case 'config':
             context.go('/configuracoes');
           case 'sair':
@@ -343,6 +349,7 @@ class UserMenu extends ConsumerWidget {
         PopupMenuItem(value: 'cartoes', child: Text('Cartões')),
         PopupMenuItem(value: 'dividas', child: Text('Dívidas')),
         PopupMenuItem(value: 'planejamento', child: Text('Planejamento')),
+        PopupMenuItem(value: 'patrimonio', child: Text('Patrimônio')),
         PopupMenuItem(value: 'config', child: Text('Configurações')),
         PopupMenuDivider(),
         PopupMenuItem(value: 'sair', child: Text('Sair')),
@@ -378,7 +385,7 @@ class _MobileHeader extends ConsumerWidget {
               child: FittedBox(fit: BoxFit.scaleDown, child: ScopeSwitcher(compact: true)),
             ),
           ),
-          const SizedBox(width: 10),
+          const PrivacyToggle(),
           if (user != null) UserMenu(name: user.name, initials: user.initials),
         ],
       ),

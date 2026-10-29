@@ -9,6 +9,9 @@ import '../ui/screens/accounts/statement_screen.dart';
 import '../ui/screens/auth/auth_screens.dart';
 import '../ui/screens/cards/cards_screen.dart';
 import '../ui/screens/debts/debts_screen.dart';
+import '../ui/screens/investments/investments_screen.dart';
+import '../ui/screens/patrimony/patrimony_screen.dart';
+import '../ui/screens/piggy/piggy_screen.dart';
 import '../ui/screens/planning/planning_screen.dart';
 import '../ui/screens/dashboard/dashboard_screen.dart';
 import '../ui/screens/contacts/contacts_screen.dart';
@@ -118,22 +121,29 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/configuracoes', builder: (_, _) => const SettingsScreen()),
           GoRoute(
             path: '/cofrinhos',
-            builder: (_, _) => const ComingSoonScreen(
-              title: 'Meus Cofrinhos',
-              icon: Symbols.savings,
-              phase: 'Fase 3',
-              description: 'Metas com aportes e resgates, rendimento configurado (% do CDI, Selic, prefixado) separando principal, rendimento efetivo e estimado.',
-            ),
+            builder: (_, _) => const PiggyScreen(),
+            routes: [
+              GoRoute(
+                path: ':entityId/:id',
+                builder: (_, s) =>
+                    PiggyDetailScreen(entityId: s.pathParameters['entityId']!, piggyId: s.pathParameters['id']!),
+              ),
+            ],
           ),
           GoRoute(
             path: '/investimentos',
-            builder: (_, _) => const ComingSoonScreen(
-              title: 'Investimentos',
-              icon: Symbols.trending_up,
-              phase: 'Fase 3',
-              description: 'Carteira de CDB, LCI, LCA, Tesouro, fundos, ações e ETFs, com motores de cálculo próprios para cada produto.',
-            ),
+            builder: (_, _) => const InvestmentsScreen(),
+            routes: [
+              GoRoute(
+                path: ':entityId/:id',
+                builder: (_, s) => InvestmentDetailScreen(
+                  entityId: s.pathParameters['entityId']!,
+                  investmentId: s.pathParameters['id']!,
+                ),
+              ),
+            ],
           ),
+          GoRoute(path: '/patrimonio', builder: (_, _) => const PatrimonyScreen()),
           GoRoute(path: '/planejamento', builder: (_, _) => const PlanningScreen()),
           GoRoute(
             path: '/cartoes',

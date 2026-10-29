@@ -95,6 +95,7 @@ class FakeRepository extends HoinkRepository {
   final simulated = <Map<String, Object?>>[];
   final budgetsSaved = <(String, int, int)>[];
   List<CreditCard> cardList = [];
+  final piggyActions = <(String, Map<String, Object?>)>[];
   String? loginError;
   bool withBusiness = true;
 
@@ -291,6 +292,70 @@ class FakeRepository extends HoinkRepository {
       {'id': 'a2', 'name': 'Reserva Nubank', 'balanceCents': 1450000},
     ],
   });
+
+  @override
+  Future<List<PiggyBank>> piggyBanks(String entityId) async => [PiggyBank(piggyJson())];
+  @override
+  Future<PiggyResult> piggyAction(String entityId, String id, String action, Map<String, Object?> body) async {
+    piggyActions.add((action, body));
+    return PiggyResult({
+      'piggy': piggyJson(balance: 210000),
+      'unlocked': [
+        {
+          'code': 'GOAL_50',
+          'title': 'Metade lá!',
+          'description': 'Chegou à metade da meta',
+          'icon': 'flag',
+          'points': 50,
+          'piggyName': 'PS5',
+        },
+      ],
+    });
+  }
+
+  @override
+  Future<GamificationProfile> gamification() async => GamificationProfile({
+    'level': 2,
+    'name': 'Porquinho Poupador',
+    'points': 150,
+    'nextLevelName': 'Porco Planejador',
+    'pointsToNext': 150,
+    'progressBps': 2500,
+    'streak': {'current': 3, 'best': 5, 'depositedThisWeek': false},
+    'unlocked': [
+      {'code': 'FIRST_DEPOSIT', 'title': 'Primeira moedinha', 'description': 'x', 'icon': 'paid', 'points': 20},
+    ],
+    'locked': [
+      {'code': 'SAVED_10K', 'title': 'Porquinho gordo', 'description': 'y', 'icon': 'savings', 'points': 150},
+    ],
+  });
+
+  @override
+  Future<Patrimony> patrimony({String? entityId}) async => Patrimony({
+    'assets': {
+      'cashCents': 2000000,
+      'piggyBanksCents': 500000,
+      'investmentsCents': 1000000,
+      'otherCents': 7200000,
+      'totalCents': 10700000,
+    },
+    'liabilities': {'debtsCents': 3800000, 'cardsCents': 400000, 'otherCents': 0, 'totalCents': 4200000},
+    'netWorthCents': 6500000,
+    'items': [
+      {
+        'id': 'i1',
+        'side': 'ASSET',
+        'category': 'Veículo',
+        'name': 'Onix',
+        'valueCents': 7200000,
+        'valuedAt': '2025-01-01',
+      },
+    ],
+    'history': [
+      {'month': '2025-05', 'assetsCents': 10000000, 'liabilitiesCents': 4300000, 'netWorthCents': 5700000},
+      {'month': '2025-06', 'assetsCents': 10700000, 'liabilitiesCents': 4200000, 'netWorthCents': 6500000},
+    ],
+  });
 }
 
 Json invoiceJson(String month) => {
@@ -322,3 +387,32 @@ CreditCard fakeCard() => CreditCard.fromJson({
   'currentInvoice': invoiceJson('2025-07'),
   'pendingInvoices': [invoiceJson('2025-06')],
 });
+
+Json piggyJson({int balance = 180000}) => {
+  'id': 'pg1',
+  'entityId': 'e1',
+  'kind': 'WISH',
+  'name': 'PS5 para o namorado',
+  'institution': null,
+  'icon': 'sports_esports',
+  'link': 'https://loja.exemplo/ps5',
+  'priority': 1,
+  'goalCents': 420000,
+  'targetDate': null,
+  'achievedAt': null,
+  'yieldKind': 'NONE',
+  'yieldRateBps': 0,
+  'yieldLabel': 'Sem rendimento',
+  'liquidity': 'DAILY',
+  'balanceCents': balance,
+  'principalCents': balance,
+  'effectiveYieldCents': 0,
+  'estimatedYieldCents': 0,
+  'grossEstimatedCents': balance,
+  'taxEstimatedCents': 0,
+  'netEstimatedCents': balance,
+  'estimate': null,
+  'progressBps': balance * 10000 ~/ 420000,
+  'missingCents': 420000 - balance,
+  'monthlyNeededCents': null,
+};

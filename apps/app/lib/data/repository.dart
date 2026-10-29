@@ -287,4 +287,55 @@ class HoinkRepository {
           'accountIds': accountIds,
         }))['data'],
       );
+
+  // ── Cofrinhos e gamificação ──
+  Future<List<PiggyBank>> piggyBanks(String entityId) async =>
+      ((await api.get('/entities/$entityId/piggy-banks'))['data'] as List).map((p) => PiggyBank(p)).toList();
+  Future<PiggyBank> piggyBank(String entityId, String id) async =>
+      PiggyBank((await api.get('/entities/$entityId/piggy-banks/$id'))['data']);
+  Future<PiggyResult> savePiggy(String entityId, Map<String, Object?> body, {String? id}) async => PiggyResult(
+    (id == null
+        ? await api.post('/entities/$entityId/piggy-banks', body)
+        : await api.patch('/entities/$entityId/piggy-banks/$id', body))['data'],
+  );
+
+  /// [action]: `deposit`, `withdraw`, `yield` ou `achieve`.
+  Future<PiggyResult> piggyAction(String entityId, String id, String action, Map<String, Object?> body) async =>
+      PiggyResult((await api.post('/entities/$entityId/piggy-banks/$id/$action', body, newIdempotencyKey()))['data']);
+  Future<void> archivePiggy(String entityId, String id) => api.post('/entities/$entityId/piggy-banks/$id/archive');
+  Future<PiggySimulation> simulatePiggy(String entityId, String id, int monthlyCents, int months) async =>
+      PiggySimulation(
+        (await api.get(
+          '/entities/$entityId/piggy-banks/$id/simulate',
+          query: {'monthlyCents': monthlyCents, 'months': months},
+        ))['data'],
+      );
+  Future<GamificationProfile> gamification() async => GamificationProfile((await api.get('/gamification'))['data']);
+  Future<List<MarketRateStatus>> marketRates() async =>
+      ((await api.get('/market-rates'))['data'] as List).map((m) => MarketRateStatus(m)).toList();
+
+  // ── Investimentos ──
+  Future<List<Investment>> investments(String entityId) async =>
+      ((await api.get('/entities/$entityId/investments'))['data'] as List).map((i) => Investment(i)).toList();
+  Future<Investment> investment(String entityId, String id) async =>
+      Investment((await api.get('/entities/$entityId/investments/$id'))['data']);
+  Future<Investment> createInvestment(String entityId, Map<String, Object?> body) async =>
+      Investment((await api.post('/entities/$entityId/investments', body, newIdempotencyKey()))['data']);
+
+  /// [path]: `contributions`, `redemptions`, `income` ou `value`.
+  Future<Investment> investmentAction(String entityId, String id, String path, Map<String, Object?> body) async =>
+      Investment((await api.post('/entities/$entityId/investments/$id/$path', body, newIdempotencyKey()))['data']);
+  Future<Investment> deleteInvestmentMovement(String entityId, String id, String movementId) async =>
+      Investment((await api.delete('/entities/$entityId/investments/$id/movements/$movementId'))['data']);
+  Future<void> updateInvestment(String entityId, String id, Map<String, Object?> body) =>
+      api.patch('/entities/$entityId/investments/$id', body);
+
+  // ── Patrimônio ──
+  Future<Patrimony> patrimony({String? entityId}) async => Patrimony(
+    (await api.get(entityId == null ? '/consolidated/patrimony' : '/entities/$entityId/patrimony'))['data'],
+  );
+  Future<void> savePatrimonyItem(String entityId, Map<String, Object?> body, {String? id}) => id == null
+      ? api.post('/entities/$entityId/patrimony/items', body)
+      : api.patch('/entities/$entityId/patrimony/items/$id', body);
+  Future<void> deletePatrimonyItem(String entityId, String id) => api.delete('/entities/$entityId/patrimony/items/$id');
 }

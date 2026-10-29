@@ -1154,3 +1154,335 @@ class EmergencyReserve {
   final bool customAccounts;
   final List<({String id, String name, int balanceCents})> accounts;
 }
+
+// ───────────── Cofrinhos, lista de desejos e gamificação ─────────────
+
+const piggyKindLabels = {'RESERVE': 'Reserva', 'WISH': 'Desejo', 'GOAL': 'Meta'};
+
+class PiggyMovement {
+  PiggyMovement(Json j) : date = j['date'], cents = j['cents'] as int, kind = j['kind'], description = j['description'];
+  final String date;
+  final int cents;
+
+  /// DEPOSIT, WITHDRAWAL, YIELD ou ADJUSTMENT.
+  final String kind;
+  final String description;
+}
+
+class PiggyBank {
+  PiggyBank(Json j)
+    : id = j['id'],
+      entityId = j['entityId'],
+      kind = j['kind'],
+      name = j['name'],
+      institution = j['institution'],
+      icon = j['icon'] ?? 'savings',
+      link = j['link'],
+      priority = j['priority'] as int,
+      goalCents = j['goalCents'] as int?,
+      targetDate = j['targetDate'],
+      achievedAt = j['achievedAt'],
+      yieldKind = j['yieldKind'],
+      yieldRateBps = j['yieldRateBps'] as int,
+      yieldLabel = j['yieldLabel'],
+      liquidity = j['liquidity'],
+      balanceCents = j['balanceCents'] as int,
+      principalCents = j['principalCents'] as int,
+      effectiveYieldCents = j['effectiveYieldCents'] as int,
+      estimatedYieldCents = j['estimatedYieldCents'] as int,
+      grossEstimatedCents = j['grossEstimatedCents'] as int,
+      taxEstimatedCents = j['taxEstimatedCents'] as int,
+      netEstimatedCents = j['netEstimatedCents'] as int,
+      estimateAvailable = (j['estimate'] as Json?)?['available'] as bool?,
+      ratesUpTo = (j['estimate'] as Json?)?['ratesUpTo'],
+      progressBps = j['progressBps'] as int?,
+      missingCents = j['missingCents'] as int?,
+      monthlyNeededCents = j['monthlyNeededCents'] as int?,
+      movements = ((j['movements'] as List?) ?? const []).map((m) => PiggyMovement(m)).toList();
+  final String id;
+  final String entityId;
+  final String kind;
+  final String name;
+  final String? institution;
+  final String icon;
+  final String? link;
+  final int priority;
+  final int? goalCents;
+  final String? targetDate;
+  final String? achievedAt;
+  final String yieldKind;
+  final int yieldRateBps;
+  final String yieldLabel;
+  final String liquidity;
+  final int balanceCents;
+  final int principalCents;
+  final int effectiveYieldCents;
+  final int estimatedYieldCents;
+  final int grossEstimatedCents;
+  final int taxEstimatedCents;
+  final int netEstimatedCents;
+
+  /// null: cofrinho sem rendimento; false: faltam dados do índice para estimar.
+  final bool? estimateAvailable;
+  final String? ratesUpTo;
+  final int? progressBps;
+  final int? missingCents;
+  final int? monthlyNeededCents;
+  final List<PiggyMovement> movements;
+
+  bool get achieved => achievedAt != null;
+}
+
+class Achievement {
+  Achievement(Json j)
+    : code = j['code'],
+      title = j['title'],
+      description = j['description'],
+      icon = j['icon'],
+      points = j['points'] as int,
+      piggyName = j['piggyName'];
+  final String code;
+  final String title;
+  final String description;
+  final String icon;
+  final int points;
+  final String? piggyName;
+}
+
+/// Resultado de ações nos cofrinhos: o cofrinho atualizado e as conquistas recém-desbloqueadas.
+class PiggyResult {
+  PiggyResult(Json j)
+    : piggy = PiggyBank(j['piggy']),
+      unlocked = ((j['unlocked'] as List?) ?? const []).map((a) => Achievement(a)).toList();
+  final PiggyBank piggy;
+  final List<Achievement> unlocked;
+}
+
+class GamificationProfile {
+  GamificationProfile(Json j)
+    : level = j['level'] as int,
+      levelName = j['name'],
+      points = j['points'] as int,
+      nextLevelName = j['nextLevelName'],
+      pointsToNext = j['pointsToNext'] as int,
+      progressBps = j['progressBps'] as int,
+      streakCurrent = (j['streak'] as Json)['current'] as int,
+      streakBest = (j['streak'] as Json)['best'] as int,
+      depositedThisWeek = (j['streak'] as Json)['depositedThisWeek'] as bool,
+      unlocked = (j['unlocked'] as List).map((a) => Achievement(a)).toList(),
+      locked = (j['locked'] as List).map((a) => Achievement(a)).toList();
+  final int level;
+  final String levelName;
+  final int points;
+  final String? nextLevelName;
+  final int pointsToNext;
+  final int progressBps;
+  final int streakCurrent;
+  final int streakBest;
+  final bool depositedThisWeek;
+  final List<Achievement> unlocked;
+  final List<Achievement> locked;
+}
+
+class PiggySimulation {
+  PiggySimulation(Json j)
+    : annualRatePct = (j['annualRatePct'] as num?)?.toDouble(),
+      rateAvailable = j['rateAvailable'] as bool,
+      monthsToGoal = j['monthsToGoal'] as int?,
+      points = (j['points'] as List)
+          .map(
+            (p) => (
+              date: p['date'] as String,
+              contributedCents: p['contributedCents'] as int,
+              balanceCents: p['balanceCents'] as int,
+            ),
+          )
+          .toList();
+  final double? annualRatePct;
+  final bool rateAvailable;
+  final int? monthsToGoal;
+  final List<({String date, int contributedCents, int balanceCents})> points;
+}
+
+// ───────────── Investimentos ─────────────
+
+const investmentKindLabels = {
+  'CDB': 'CDB',
+  'LCI': 'LCI',
+  'LCA': 'LCA',
+  'TESOURO': 'Tesouro Direto',
+  'FUND': 'Fundo',
+  'STOCK': 'Ação',
+  'ETF': 'ETF',
+  'OTHER': 'Outro',
+};
+
+const indexerLabels = {
+  'CDI_PERCENT': '% do CDI',
+  'SELIC_PERCENT': '% da Selic',
+  'PREFIXED': 'Prefixado (% a.a.)',
+  'IPCA_PLUS': 'IPCA + (% a.a.)',
+  'MARKET': 'Cotação de mercado',
+  'MANUAL': 'Valor informado',
+};
+
+class InvestmentMove {
+  InvestmentMove(Json j)
+    : id = j['id'],
+      kind = j['kind'],
+      date = j['date'],
+      amountCents = j['amountCents'] as int,
+      quantity = (j['quantity'] as num?)?.toDouble(),
+      unitPrice = (j['unitPrice'] as num?)?.toDouble(),
+      account = j['account'];
+  final String id;
+
+  /// CONTRIBUTION, REDEMPTION, VALUE_UPDATE ou INCOME.
+  final String kind;
+  final String date;
+  final int amountCents;
+  final double? quantity;
+  final double? unitPrice;
+  final String? account;
+}
+
+class Investment {
+  Investment(Json j)
+    : id = j['id'],
+      entityId = j['entityId'],
+      kind = j['kind'],
+      kindLabel = j['kindLabel'],
+      name = j['name'],
+      institution = j['institution'],
+      ticker = j['ticker'],
+      indexer = j['indexer'],
+      rateBps = j['rateBps'] as int,
+      maturityDate = j['maturityDate'],
+      daysToMaturity = j['daysToMaturity'] as int?,
+      taxation = j['taxation'],
+      status = j['status'],
+      principalCents = j['principalCents'] as int,
+      valueCents = j['valueCents'] as int,
+      valueSource = j['valueSource'],
+      valueDate = j['valueDate'],
+      stale = j['stale'] as bool,
+      ratesUpTo = j['ratesUpTo'],
+      quantity = (j['quantity'] as num?)?.toDouble(),
+      unitPrice = (j['unitPrice'] as num?)?.toDouble(),
+      gainCents = j['gainCents'] as int,
+      incomeReceivedCents = j['incomeReceivedCents'] as int,
+      returnBps = j['returnBps'] as int?,
+      taxEstimatedCents = j['taxEstimatedCents'] as int,
+      netEstimatedCents = j['netEstimatedCents'] as int,
+      history = ((j['history'] as List?) ?? const [])
+          .map(
+            (h) => (
+              date: h['date'] as String,
+              valueCents: h['valueCents'] as int,
+              principalCents: h['principalCents'] as int,
+            ),
+          )
+          .toList(),
+      movements = ((j['movements'] as List?) ?? const []).map((m) => InvestmentMove(m)).toList();
+  final String id;
+  final String entityId;
+  final String kind;
+  final String kindLabel;
+  final String name;
+  final String? institution;
+  final String? ticker;
+  final String indexer;
+  final int rateBps;
+  final String? maturityDate;
+  final int? daysToMaturity;
+  final String taxation;
+  final String status;
+  final int principalCents;
+  final int valueCents;
+
+  /// ESTIMATED, INFORMED, MARKET_PRICE ou NONE.
+  final String valueSource;
+  final String? valueDate;
+  final bool stale;
+  final String? ratesUpTo;
+  final double? quantity;
+  final double? unitPrice;
+  final int gainCents;
+  final int incomeReceivedCents;
+  final int? returnBps;
+  final int taxEstimatedCents;
+  final int netEstimatedCents;
+  final List<({String date, int valueCents, int principalCents})> history;
+  final List<InvestmentMove> movements;
+
+  bool get isMarket => indexer == 'MARKET';
+}
+
+class MarketRateStatus {
+  MarketRateStatus(Json j)
+    : index = j['index'],
+      lastDate = j['lastDate'],
+      annualPct = (j['annualPct'] as num?)?.toDouble(),
+      ratePct = (j['ratePct'] as num?)?.toDouble(),
+      stale = j['stale'] as bool;
+  final String index;
+  final String? lastDate;
+  final double? annualPct;
+  final double? ratePct;
+  final bool stale;
+}
+
+// ───────────── Patrimônio ─────────────
+
+class PatrimonyItem {
+  PatrimonyItem(Json j)
+    : id = j['id'],
+      side = j['side'],
+      category = j['category'],
+      name = j['name'],
+      valueCents = j['valueCents'] as int,
+      valuedAt = j['valuedAt'];
+  final String id;
+  final String side;
+  final String category;
+  final String name;
+  final int valueCents;
+  final String valuedAt;
+}
+
+class Patrimony {
+  Patrimony(Json j)
+    : cashCents = (j['assets'] as Json)['cashCents'] as int,
+      piggyBanksCents = (j['assets'] as Json)['piggyBanksCents'] as int,
+      investmentsCents = (j['assets'] as Json)['investmentsCents'] as int,
+      otherAssetsCents = (j['assets'] as Json)['otherCents'] as int,
+      assetsCents = (j['assets'] as Json)['totalCents'] as int,
+      debtsCents = (j['liabilities'] as Json)['debtsCents'] as int,
+      cardsCents = (j['liabilities'] as Json)['cardsCents'] as int,
+      otherLiabilitiesCents = (j['liabilities'] as Json)['otherCents'] as int,
+      liabilitiesCents = (j['liabilities'] as Json)['totalCents'] as int,
+      netWorthCents = j['netWorthCents'] as int,
+      items = ((j['items'] as List?) ?? const []).map((i) => PatrimonyItem(i)).toList(),
+      history = (j['history'] as List)
+          .map(
+            (h) => (
+              month: h['month'] as String,
+              assetsCents: h['assetsCents'] as int,
+              liabilitiesCents: h['liabilitiesCents'] as int,
+              netWorthCents: h['netWorthCents'] as int,
+            ),
+          )
+          .toList();
+  final int cashCents;
+  final int piggyBanksCents;
+  final int investmentsCents;
+  final int otherAssetsCents;
+  final int assetsCents;
+  final int debtsCents;
+  final int cardsCents;
+  final int otherLiabilitiesCents;
+  final int liabilitiesCents;
+  final int netWorthCents;
+  final List<PatrimonyItem> items;
+  final List<({String month, int assetsCents, int liabilitiesCents, int netWorthCents})> history;
+}
