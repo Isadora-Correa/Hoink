@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600" role="img" aria-label="Mascote porquinho Hoink">
+  <title>Hoink — mascote principal</title>
+  <g stroke="#A85A6B" stroke-width="7" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M167 202 Q102 77 160 85 Q235 100 242 175" fill="#F3A9B8"/>
+    <path d="M356 170 Q369 92 443 87 Q493 97 422 208" fill="#F3A9B8"/>
+    <path d="M183 173 Q152 111 173 115 Q209 133 218 170" fill="#F9C7D2" stroke="none"/>
+    <path d="M377 172 Q398 116 435 115 Q452 120 413 186" fill="#F9C7D2" stroke="none"/>
+    <ellipse cx="300" cy="300" rx="197" ry="172" fill="#F3A9B8"/>
+    <ellipse cx="236" cy="277" rx="11" ry="15" fill="#26352F" stroke="none"/>
+    <ellipse cx="365" cy="277" rx="11" ry="15" fill="#26352F" stroke="none"/>
+    <path d="M264 336 Q300 368 336 336" fill="none" stroke="#26352F" stroke-width="8"/>
+    <ellipse cx="300" cy="338" rx="70" ry="49" fill="#E88FA5"/>
+    <ellipse cx="276" cy="337" rx="12" ry="17" fill="#A85A6B" stroke="none"/>
+    <ellipse cx="325" cy="337" rx="12" ry="17" fill="#A85A6B" stroke="none"/>
+    <path d="M186 434 L172 487 Q181 511 209 493 L226 462" fill="#F3A9B8"/>
+    <path d="M373 458 L394 490 Q421 509 430 483 L411 432" fill="#F3A9B8"/>
+    <path d="M480 334 Q535 315 512 278 Q498 264 484 280" fill="none" stroke="#F3A9B8" stroke-width="18"/>
+  </g>
+</svg>

@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hoink
+      POSTGRES_PASSWORD: hoink
+      POSTGRES_DB: hoink
+    ports:
+      - "5433:5432"
+    volumes:
+      - hoink-db:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hoink"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    image: ${API_IMAGE:-hoink-api:local}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-dev}
+        APP_VERSION: ${APP_VERSION:-0.1.0}
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://hoink:hoink@db:5432/hoink
+      PORT: 3333
+      CORS_ORIGINS: http://localhost:${WEB_PORT:-8080}
+      LOG_LEVEL: info
+      AUTH_RATE_LIMIT: ${AUTH_RATE_LIMIT:-20}
+    ports:
+      - "3333:3333"
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ["full"]
+
+  web:
+    image: ${WEB_IMAGE:-hoink-web:local}
+    build:
+      context: apps/app
+      dockerfile: Dockerfile
+      args:
+        API_BASE_URL: http://localhost:3333
+        GIT_SHA: ${GIT_SHA:-dev}
+        APP_VERSION: ${APP_VERSION:-0.1.0}
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    profiles: ["full"]
+
+volumes:
+  hoink-db:

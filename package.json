@@ -1,0 +1,24 @@
+{
+  "name": "hoink",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.18.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @hoink/api dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:up": "docker compose up -d db",
+    "db:migrate": "pnpm --filter @hoink/api prisma:migrate",
+    "db:seed": "pnpm --filter @hoink/api seed",
+    "test:e2e": "pnpm --filter @hoink/e2e test"
+  },
+  "pnpm": {
+    "overrides": {
+      "deepmerge-ts": "^8.0.2"
+    }
+  }
+}

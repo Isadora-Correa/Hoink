@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="240" viewBox="0 0 760 240" role="img" aria-label="hoink. logotipo claro">
+  <title>hoink. — logotipo para fundo escuro</title>
+  <g fill="#FFF9F1" font-family="Sora, Nunito, Arial, sans-serif" font-weight="800" font-size="174" letter-spacing="-10">
+    <text x="30" y="183">h</text>
+    <text x="289" y="183">ink</text>
+  </g>
+  <g transform="translate(222 122)">
+    <path d="M-42-53 Q-61-102-37-104 Q-13-101-13-65" fill="#F3A9B8"/>
+    <path d="M18-65 Q31-105 53-101 Q72-94 48-50" fill="#F3A9B8"/>
+    <circle r="66" fill="#FFF9F1"/>
+    <ellipse rx="47" ry="43" fill="#F3A9B8"/>
+    <ellipse cx="-15" cy="3" rx="8.5" ry="12" fill="#103E37"/>
+    <ellipse cx="15" cy="3" rx="8.5" ry="12" fill="#103E37"/>
+  </g>
+  <circle cx="685" cy="165" r="15" fill="#F3A9B8"/>
+</svg>

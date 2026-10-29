@@ -1,0 +1,250 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Princípio do menor privilégio: o CI só lê o repositório.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 24
+  FLUTTER_VERSION: 3.47.8
+
+jobs:
+  structure:
+    name: Estrutura e configuração
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar estrutura do projeto
+        run: ./scripts/validate-structure.sh
+      - name: Validar docker-compose
+        run: docker compose -f docker-compose.yml --profile full config --quiet
+
+  api:
+    name: API — lint, testes e build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hoink
+          POSTGRES_PASSWORD: hoink
+          POSTGRES_DB: hoink_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hoink" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://hoink:hoink@localhost:5432/hoink_test
+      DATABASE_URL: postgresql://hoink:hoink@localhost:5432/hoink_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm --filter @hoink/api lint
+      - name: Typecheck
+        run: pnpm --filter @hoink/api typecheck
+      - name: Testes unitários e de integração (com cobertura)
+        run: pnpm --filter @hoink/api test:coverage
+      - name: Build
+        run: pnpm --filter @hoink/api build
+      - name: Evidências — cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage
+          path: apps/api/coverage
+      - name: Resumo da cobertura
+        if: always()
+        run: |
+          node -e "const s=require('./apps/api/coverage/coverage-summary.json').total;console.log('| Métrica | % |\n|---|---|\n'+['lines','statements','functions','branches'].map(k=>'| '+k+' | '+s[k].pct+' |').join('\n'))" >> "$GITHUB_STEP_SUMMARY"
+
+  app:
+    name: App Flutter — análise, testes e build web
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Formatação
+        run: dart format --output=none --set-exit-if-changed lib test
+      - name: Análise estática
+        run: flutter analyze
+      - name: Testes unitários e de widget (com cobertura)
+        run: flutter test --coverage
+      - name: Build web (apontando para a API do E2E)
+        run: flutter build web --release --dart-define=API_BASE_URL=http://localhost:3333 --dart-define=GIT_SHA=${{ github.sha }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-build-e2e
+          path: apps/app/build/web
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: app-coverage
+          path: apps/app/coverage
+
+  e2e:
+    name: Testes E2E (Playwright)
+    needs: [api, app]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hoink
+          POSTGRES_PASSWORD: hoink
+          POSTGRES_DB: hoink
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hoink" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://hoink:hoink@localhost:5432/hoink
+      AUTH_RATE_LIMIT: 10000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Migrations + build da API
+        run: |
+          pnpm --filter @hoink/api exec prisma migrate deploy
+          pnpm --filter @hoink/api build
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-build-e2e
+          path: web
+      - name: Subir API e front-end
+        run: |
+          (cd apps/api && nohup node dist/server.js > ../../api.log 2>&1 &)
+          nohup node e2e/serve.mjs web 8080 > web.log 2>&1 &
+          npx --yes wait-on -t 60000 http://localhost:3333/health http://localhost:8080
+      - name: Instalar navegador
+        run: pnpm --filter @hoink/e2e exec playwright install --with-deps chromium
+      - name: Executar E2E
+        run: pnpm --filter @hoink/e2e test
+      - name: Evidências — relatório e logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+            api.log
+
+  performance:
+    name: Teste de performance (k6)
+    needs: [api]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hoink
+          POSTGRES_PASSWORD: hoink
+          POSTGRES_DB: hoink
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hoink" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://hoink:hoink@localhost:5432/hoink
+      LOG_LEVEL: warn
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Subir API
+        run: |
+          pnpm --filter @hoink/api exec prisma migrate deploy
+          pnpm --filter @hoink/api build
+          (cd apps/api && nohup node dist/server.js > ../../api.log 2>&1 &)
+          npx --yes wait-on -t 60000 http://localhost:3333/health
+      - uses: grafana/setup-k6-action@v1
+      - name: Executar carga (limites de latência e erros)
+        run: k6 run --summary-export=k6-summary.json -e API_URL=http://localhost:3333 perf/load.js
+      - name: Métricas da API após a carga
+        if: always()
+        run: curl -s http://localhost:3333/metrics | grep -E '^(http_requests_total|hoink_business_events_total|app_errors_total)' > metrics-after-load.txt || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-report
+          path: |
+            k6-summary.json
+            metrics-after-load.txt
+
+  security:
+    name: Segurança — dependências e segredos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Auditoria de dependências de produção (npm)
+        run: pnpm audit --prod --audit-level high
+      - name: Varredura de vulnerabilidades e segredos (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+          skip-dirs: docs/prototypes
+
+  docker:
+    name: Build das imagens Docker
+    needs: [structure]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Imagem da API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: false
+          build-args: GIT_SHA=${{ github.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+      - name: Imagem do front-end
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/app
+          push: false
+          build-args: GIT_SHA=${{ github.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web

@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.dart_tool
+**/build
+**/coverage
+.git
+.env
+.env.*
+!.env.example
+e2e/test-results
+e2e/playwright-report
+docs/prototypes

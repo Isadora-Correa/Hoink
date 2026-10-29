@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Ícone do aplicativo Hoink">
+  <title>Hoink — ícone de aplicativo</title>
+  <rect x="0" y="0" width="512" height="512" rx="115" fill="#103E37"/>
+  <path d="M151 169 Q96 67 148 82 Q205 90 217 151" fill="#F3A9B8"/>
+  <path d="M296 151 Q320 81 368 80 Q417 89 359 169" fill="#F3A9B8"/>
+  <ellipse cx="256" cy="277" rx="143" ry="123" fill="#F3A9B8"/>
+  <ellipse cx="211" cy="278" rx="19" ry="29" fill="#103E37"/>
+  <ellipse cx="301" cy="278" rx="19" ry="29" fill="#103E37"/>
+</svg>

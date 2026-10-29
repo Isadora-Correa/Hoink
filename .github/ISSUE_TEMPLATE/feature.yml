@@ -1,0 +1,23 @@
+name: Funcionalidade
+description: Propor uma nova funcionalidade ou melhoria
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema ou necessidade
+      description: Qual dor do usuário isto resolve?
+    validations:
+      required: true
+  - type: textarea
+    id: criterios
+    attributes:
+      label: Critérios de aceite
+      placeholder: "- [ ] Usuário consegue…"
+    validations:
+      required: true
+  - type: dropdown
+    id: fase
+    attributes:
+      label: Fase do roadmap
+      options: [Fase 1 — Fundação, Fase 2 — Gestão financeira, Fase 3 — Patrimônio e investimentos, Fase 4 — Relatórios e IA, Fase 5 — Produção]

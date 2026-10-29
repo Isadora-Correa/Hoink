@@ -1,0 +1,652 @@
+// Hoink — modelo relacional.
+// Convenções:
+//  * Valores monetários em centavos inteiros (BIGINT). Nunca ponto flutuante.
+//  * Datas financeiras (competência, vencimento, liquidação) como DATE, sem fuso.
+//  * Exclusões de registros financeiros são lógicas (deleted_at) para manter rastreabilidade (RN14).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Identidade ─────────────────────────────
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  name         String
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  avatar              UserAvatar?
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  memberships         EntityMember[]
+  auditLogs           AuditLog[]
+
+  @@map("users")
+}
+
+/// Foto de perfil guardada no banco (até 2 MB), separada de `users` para não pesar nas consultas comuns.
+/// Fica no PostgreSQL para sobreviver a redeploys em hospedagens com disco efêmero.
+model UserAvatar {
+  userId    String   @id @map("user_id") @db.Uuid
+  mimeType  String   @map("mime_type")
+  data      Bytes
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_avatars")
+}
+
+model Session {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  userAgent  String?   @map("user_agent")
+  ip         String?
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  lastUsedAt DateTime  @default(now()) @map("last_used_at") @db.Timestamptz
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ───────────────────────── Ambientes financeiros ─────────────────────────
+
+enum EntityKind {
+  PERSONAL
+  BUSINESS
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+model FinancialEntity {
+  id         String     @id @default(uuid()) @db.Uuid
+  name       String
+  kind       EntityKind
+  document   String?
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+  archivedAt DateTime?  @map("archived_at") @db.Timestamptz
+
+  members        EntityMember[]
+  accounts       Account[]
+  categories     Category[]
+  transactions   Transaction[]
+  recurringRules RecurringRule[]
+  contacts       Contact[]
+  budgets        Budget[]
+  debts          Debt[]
+  planning       PlanningSettings?
+
+  @@map("financial_entities")
+}
+
+model EntityMember {
+  entityId          String     @map("entity_id") @db.Uuid
+  userId            String     @map("user_id") @db.Uuid
+  role              MemberRole
+  /// Participação do usuário no ambiente, em pontos-base (10000 = 100%).
+  /// Usada no Consolidado para não presumir que o caixa da empresa pertence integralmente ao usuário.
+  ownershipShareBps Int        @default(10000) @map("ownership_share_bps")
+  createdAt         DateTime   @default(now()) @map("created_at") @db.Timestamptz
+
+  entity FinancialEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([entityId, userId])
+  @@index([userId])
+  @@map("entity_members")
+}
+
+// ───────────────────────────── Contas ─────────────────────────────
+
+enum AccountType {
+  CHECKING
+  PAYMENT
+  SAVINGS
+  WALLET
+  BROKERAGE
+  OTHER
+  /// Conta-razão de um cartão de crédito (ver CreditCard). Não é dinheiro disponível.
+  CREDIT_CARD
+}
+
+model Account {
+  id                  String      @id @default(uuid()) @db.Uuid
+  entityId            String      @map("entity_id") @db.Uuid
+  name                String
+  institution         String?
+  type                AccountType
+  /// Saldo na data de referência. O saldo atual é sempre derivado deste valor + movimentações liquidadas.
+  initialBalanceCents BigInt      @default(0) @map("initial_balance_cents")
+  referenceDate       DateTime    @map("reference_date") @db.Date
+  color               String?
+  /// Conta que compõe a reserva de emergência no planejamento.
+  isEmergencyReserve  Boolean     @default(false) @map("is_emergency_reserve")
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  archivedAt          DateTime?   @map("archived_at") @db.Timestamptz
+
+  entity         FinancialEntity @relation(fields: [entityId], references: [id], onDelete: Restrict)
+  transactions   Transaction[]
+  recurringRules RecurringRule[]
+  card           CreditCard?     @relation("CardLedger")
+  paysCards      CreditCard[]    @relation("CardPaymentAccount")
+  debts          Debt[]
+
+  @@index([entityId])
+  @@map("accounts")
+}
+
+// ───────────────────────────── Categorias ─────────────────────────────
+
+enum CategoryKind {
+  INCOME
+  EXPENSE
+}
+
+model Category {
+  id         String       @id @default(uuid()) @db.Uuid
+  entityId   String       @map("entity_id") @db.Uuid
+  name       String
+  kind       CategoryKind
+  icon       String       @default("category")
+  color      String?
+  isSystem   Boolean      @default(false) @map("is_system")
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  archivedAt DateTime?    @map("archived_at") @db.Timestamptz
+
+  entity         FinancialEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  transactions   Transaction[]
+  recurringRules RecurringRule[]
+  budgets        Budget[]
+  cardPurchases  CardPurchase[]
+  debts          Debt[]
+
+  @@unique([entityId, kind, name])
+  @@map("categories")
+}
+
+// ───────────────────────────── Lançamentos ─────────────────────────────
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  CONTRIBUTION
+  REDEMPTION
+  REFUND
+  ADJUSTMENT
+  WITHDRAWAL
+}
+
+enum Direction {
+  IN
+  OUT
+}
+
+enum TransactionStatus {
+  PLANNED
+  PENDING
+  PARTIAL
+  SETTLED
+  CANCELED
+}
+
+model Transaction {
+  id                 String            @id @default(uuid()) @db.Uuid
+  entityId           String            @map("entity_id") @db.Uuid
+  accountId          String            @map("account_id") @db.Uuid
+  categoryId         String?           @map("category_id") @db.Uuid
+  type               TransactionType
+  direction          Direction
+  /// Valor total do lançamento (sempre positivo; o sentido está em `direction`).
+  amountCents        BigInt            @map("amount_cents")
+  /// Quanto já foi efetivamente liquidado. Somente este valor afeta o saldo da conta.
+  settledAmountCents BigInt            @default(0) @map("settled_amount_cents")
+  status             TransactionStatus
+  competenceDate     DateTime          @map("competence_date") @db.Date
+  dueDate            DateTime?         @map("due_date") @db.Date
+  settledDate        DateTime?         @map("settled_date") @db.Date
+  description        String
+  counterparty       String?
+  notes              String?
+  tags               String[]          @default([])
+  transferId         String?           @map("transfer_id") @db.Uuid
+  /// Ocorrência de uma recorrência: regra de origem e data prevista na série.
+  recurringRuleId    String?           @map("recurring_rule_id") @db.Uuid
+  occurrenceDate     DateTime?         @map("occurrence_date") @db.Date
+  /// Ocorrência editada individualmente; edições da série não sobrescrevem seus valores.
+  isOverride         Boolean           @default(false) @map("is_override")
+  /// Cliente ou fornecedor do lançamento (contas a receber/pagar).
+  contactId          String?           @map("contact_id") @db.Uuid
+  /// Cartão: fatura a que a parcela (ou o pagamento) pertence, compra de origem e número da parcela.
+  invoiceId          String?           @map("invoice_id") @db.Uuid
+  purchaseId         String?           @map("purchase_id") @db.Uuid
+  installmentNumber  Int?              @map("installment_number")
+  createdById        String            @map("created_by") @db.Uuid
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt          DateTime?         @map("deleted_at") @db.Timestamptz
+
+  entity          FinancialEntity  @relation(fields: [entityId], references: [id], onDelete: Restrict)
+  account         Account          @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  category        Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transfer        Transfer?        @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  recurringRule   RecurringRule?   @relation(fields: [recurringRuleId], references: [id], onDelete: Restrict)
+  contact         Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  invoice         CardInvoice?     @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  purchase        CardPurchase?    @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  settlements     Settlement[]
+  debtInstallment DebtInstallment?
+
+  @@index([invoiceId])
+  @@index([purchaseId])
+  @@index([recurringRuleId, occurrenceDate])
+  @@index([contactId])
+  @@index([entityId, competenceDate])
+  @@index([entityId, settledDate])
+  @@index([entityId, status, dueDate])
+  @@index([accountId, status])
+  @@index([transferId])
+  @@map("transactions")
+}
+
+/// Cada pagamento/recebimento efetivo de um lançamento. É a fonte de verdade de saldos,
+/// extratos e realizado por período: um recebimento parcial em março e outro em abril
+/// aparecem cada um no seu mês (RN15). `transactions.settled_amount_cents` é a soma em cache.
+model Settlement {
+  id            String   @id @default(uuid()) @db.Uuid
+  transactionId String   @map("transaction_id") @db.Uuid
+  amountCents   BigInt   @map("amount_cents")
+  date          DateTime @db.Date
+  createdById   String   @map("created_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId])
+  @@index([date])
+  @@map("transaction_settlements")
+}
+
+// ───────────────────────── Clientes e fornecedores ─────────────────────────
+
+enum ContactKind {
+  CLIENT
+  SUPPLIER
+  BOTH
+}
+
+model Contact {
+  id         String      @id @default(uuid()) @db.Uuid
+  entityId   String      @map("entity_id") @db.Uuid
+  kind       ContactKind
+  name       String
+  /// CPF ou CNPJ (somente dígitos).
+  document   String?
+  email      String?
+  phone      String?
+  notes      String?
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  archivedAt DateTime?   @map("archived_at") @db.Timestamptz
+
+  entity         FinancialEntity @relation(fields: [entityId], references: [id], onDelete: Restrict)
+  transactions   Transaction[]
+  recurringRules RecurringRule[]
+
+  @@index([entityId, kind])
+  @@map("contacts")
+}
+
+// ───────────────────────────── Recorrências ─────────────────────────────
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  YEARLY
+  CUSTOM
+}
+
+enum IntervalUnit {
+  DAY
+  WEEK
+  MONTH
+  YEAR
+}
+
+/// Fixo (sempre igual), variável (muda todo mês, ex.: energia) ou estimado (valor aproximado).
+enum AmountKind {
+  FIXED
+  VARIABLE
+  ESTIMATED
+}
+
+enum RecurrenceStatus {
+  ACTIVE
+  PAUSED
+  CANCELED
+}
+
+/// Regra de recorrência. As ocorrências são lançamentos comuns (status Previsto) ligados à regra,
+/// com unicidade (regra, data) garantida no banco para nunca duplicar.
+model RecurringRule {
+  id             String              @id @default(uuid()) @db.Uuid
+  entityId       String              @map("entity_id") @db.Uuid
+  type           TransactionType
+  description    String
+  amountCents    BigInt              @map("amount_cents")
+  amountKind     AmountKind          @default(FIXED) @map("amount_kind")
+  accountId      String              @map("account_id") @db.Uuid
+  categoryId     String?             @map("category_id") @db.Uuid
+  counterparty   String?
+  contactId      String?             @map("contact_id") @db.Uuid
+  notes          String?
+  frequency      RecurrenceFrequency
+  intervalCount  Int                 @default(1) @map("interval_count")
+  intervalUnit   IntervalUnit?       @map("interval_unit")
+  startDate      DateTime            @map("start_date") @db.Date
+  endDate        DateTime?           @map("end_date") @db.Date
+  maxOccurrences Int?                @map("max_occurrences")
+  /// Ocorrências anteriores a esta data não são geradas (ex.: período em que a regra ficou pausada).
+  activeSince    DateTime            @map("active_since") @db.Date
+  status         RecurrenceStatus    @default(ACTIVE)
+  /// Regra que originou esta (divisão por "editar esta e as próximas").
+  previousRuleId String?             @map("previous_rule_id") @db.Uuid
+  createdById    String              @map("created_by") @db.Uuid
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+
+  entity       FinancialEntity @relation(fields: [entityId], references: [id], onDelete: Restrict)
+  account      Account         @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  category     Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  contact      Contact?        @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  transactions Transaction[]
+
+  @@index([entityId, status])
+  @@map("recurring_rules")
+}
+
+// ───────────────────────────── Cartões de crédito ─────────────────────────────
+
+/// Cartão de crédito. Cada cartão tem uma conta-razão (Account do tipo CREDIT_CARD, mesmo id):
+///  * cada parcela de compra é uma DESPESA liquidada nessa conta (a despesa é reconhecida uma única vez);
+///  * pagar a fatura é uma TRANSFERÊNCIA da conta corrente para o cartão — nunca uma nova despesa (RN08).
+/// Assim o saldo da conta-razão (negativo) é o limite comprometido, e o caixa só diminui no pagamento.
+model CreditCard {
+  id               String   @id @db.Uuid
+  entityId         String   @map("entity_id") @db.Uuid
+  brand            String?
+  limitCents       BigInt   @map("limit_cents")
+  closingDay       Int      @map("closing_day")
+  dueDay           Int      @map("due_day")
+  /// Conta usada por padrão para pagar a fatura.
+  paymentAccountId String?  @map("payment_account_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  account        Account        @relation("CardLedger", fields: [id], references: [id], onDelete: Restrict)
+  paymentAccount Account?       @relation("CardPaymentAccount", fields: [paymentAccountId], references: [id], onDelete: SetNull)
+  invoices       CardInvoice[]
+  purchases      CardPurchase[]
+
+  @@index([entityId])
+  @@map("credit_cards")
+}
+
+/// Fatura de um mês (mês do vencimento). Total e pago são derivados dos lançamentos ligados a ela.
+model CardInvoice {
+  id          String   @id @default(uuid()) @db.Uuid
+  cardId      String   @map("card_id") @db.Uuid
+  /// Primeiro dia do mês de vencimento.
+  month       DateTime @db.Date
+  closingDate DateTime @map("closing_date") @db.Date
+  dueDate     DateTime @map("due_date") @db.Date
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  card         CreditCard    @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  transactions Transaction[]
+
+  @@unique([cardId, month])
+  @@map("card_invoices")
+}
+
+/// Compra no cartão (à vista ou parcelada). Cada parcela é um lançamento em sua fatura.
+model CardPurchase {
+  id               String    @id @default(uuid()) @db.Uuid
+  entityId         String    @map("entity_id") @db.Uuid
+  cardId           String    @map("card_id") @db.Uuid
+  description      String
+  categoryId       String?   @map("category_id") @db.Uuid
+  totalCents       BigInt    @map("total_cents")
+  installmentCount Int       @map("installment_count")
+  purchaseDate     DateTime  @map("purchase_date") @db.Date
+  createdById      String    @map("created_by") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz
+
+  card         CreditCard    @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  category     Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transactions Transaction[]
+
+  @@index([cardId])
+  @@map("card_purchases")
+}
+
+// ───────────────────────────── Dívidas ─────────────────────────────
+
+enum DebtKind {
+  FINANCING
+  LOAN
+  OVERDRAFT
+  OTHER
+}
+
+/// PRICE: parcelas iguais (juros decrescentes). SAC: amortização constante (parcelas decrescentes).
+enum AmortizationSystem {
+  PRICE
+  SAC
+}
+
+enum DebtStatus {
+  ACTIVE
+  PAID_OFF
+  CANCELED
+}
+
+enum DebtPaymentKind {
+  REGULAR
+  EXTRA
+  PAYOFF
+}
+
+/// Financiamento, empréstimo ou outra dívida com cronograma. As parcelas viram lançamentos
+/// pendentes (confirmados) na conta de pagamento, com principal, juros e encargos separados.
+model Debt {
+  id               String             @id @default(uuid()) @db.Uuid
+  entityId         String             @map("entity_id") @db.Uuid
+  kind             DebtKind
+  name             String
+  creditor         String?
+  principalCents   BigInt             @map("principal_cents")
+  /// Taxa de juros mensal em partes por milhão (1,99% a.m. = 19900).
+  monthlyRatePpm   Int                @map("monthly_rate_ppm")
+  system           AmortizationSystem
+  installmentCount Int                @map("installment_count")
+  /// Data da contratação (base dos juros do primeiro período e da quitação antecipada).
+  startDate        DateTime           @map("start_date") @db.Date
+  firstDueDate     DateTime           @map("first_due_date") @db.Date
+  /// Encargos fixos por parcela (seguro, tarifa).
+  feesCents        BigInt             @default(0) @map("fees_cents")
+  accountId        String             @map("account_id") @db.Uuid
+  categoryId       String?            @map("category_id") @db.Uuid
+  status           DebtStatus         @default(ACTIVE)
+  notes            String?
+  createdById      String             @map("created_by") @db.Uuid
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  entity       FinancialEntity   @relation(fields: [entityId], references: [id], onDelete: Restrict)
+  account      Account           @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  category     Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  installments DebtInstallment[]
+
+  @@index([entityId, status])
+  @@map("debts")
+}
+
+/// Linha do cronograma. O pagamento é o lançamento ligado (fonte de verdade); multa e juros de mora
+/// são a diferença entre o valor pago e principal + juros + encargos.
+model DebtInstallment {
+  id                String          @id @default(uuid()) @db.Uuid
+  debtId            String          @map("debt_id") @db.Uuid
+  kind              DebtPaymentKind @default(REGULAR)
+  number            Int?
+  dueDate           DateTime        @map("due_date") @db.Date
+  principalCents    BigInt          @map("principal_cents")
+  interestCents     BigInt          @map("interest_cents")
+  feesCents         BigInt          @default(0) @map("fees_cents")
+  balanceAfterCents BigInt          @map("balance_after_cents")
+  /// Parcela paga antes de a dívida ser cadastrada no app (sem lançamento).
+  paidBeforeApp     Boolean         @default(false) @map("paid_before_app")
+  transactionId     String?         @unique @map("transaction_id") @db.Uuid
+  /// Substituída por recálculo (amortização extraordinária ou quitação).
+  replacedAt        DateTime?       @map("replaced_at") @db.Timestamptz
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  debt        Debt         @relation(fields: [debtId], references: [id], onDelete: Restrict)
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+
+  @@index([debtId, dueDate])
+  @@map("debt_installments")
+}
+
+// ───────────────────────────── Planejamento ─────────────────────────────
+
+/// Orçamento mensal (limite de gastos) por categoria, com alerta ao atingir `alertThresholdBps` do limite.
+model Budget {
+  id                String   @id @default(uuid()) @db.Uuid
+  entityId          String   @map("entity_id") @db.Uuid
+  categoryId        String   @map("category_id") @db.Uuid
+  limitCents        BigInt   @map("limit_cents")
+  alertThresholdBps Int      @default(8000) @map("alert_threshold_bps")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  entity   FinancialEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  category Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([entityId, categoryId])
+  @@map("budgets")
+}
+
+model PlanningSettings {
+  entityId              String   @id @map("entity_id") @db.Uuid
+  /// Meta da reserva de emergência em meses de despesas.
+  emergencyTargetMonths Int      @default(6) @map("emergency_target_months")
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  entity FinancialEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@map("planning_settings")
+}
+
+/// Agrupa as duas pernas (saída e entrada) de uma transferência.
+/// Transferências nunca contam como receita/despesa (RN01). Quando cruzam ambientes,
+/// a classificação gerencial indica o significado para cada lado (RN09).
+enum TransferClassification {
+  INTERNAL
+  OWNER_CONTRIBUTION
+  OWNER_WITHDRAWAL
+  PRO_LABORE
+  PROFIT_DISTRIBUTION
+  LOAN_TO_ENTITY
+  LOAN_REPAYMENT
+  EXPENSE_REIMBURSEMENT
+}
+
+model Transfer {
+  id             String                 @id @default(uuid()) @db.Uuid
+  fromEntityId   String                 @map("from_entity_id") @db.Uuid
+  toEntityId     String                 @map("to_entity_id") @db.Uuid
+  classification TransferClassification
+  amountCents    BigInt                 @map("amount_cents")
+  date           DateTime               @db.Date
+  createdById    String                 @map("created_by") @db.Uuid
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt      DateTime?              @map("deleted_at") @db.Timestamptz
+
+  transactions Transaction[]
+
+  @@map("transfers")
+}
+
+// ───────────────────────── Auditoria e idempotência ─────────────────────────
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  entityId     String?  @map("entity_id") @db.Uuid
+  action       String
+  resourceType String   @map("resource_type")
+  resourceId   String?  @map("resource_id")
+  before       Json?
+  after        Json?
+  ip           String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityId, createdAt])
+  @@index([resourceType, resourceId])
+  @@map("audit_logs")
+}
+
+model IdempotencyKey {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  key         String
+  method      String
+  path        String
+  requestHash String   @map("request_hash")
+  statusCode  Int?     @map("status_code")
+  response    Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([userId, key])
+  @@map("idempotency_keys")
+}
