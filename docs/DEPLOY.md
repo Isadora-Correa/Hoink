@@ -52,6 +52,7 @@ manual antes do deploy, se o grupo quiser.
 | `METRICS_TOKEN` | recomendado | Protege `GET /metrics` com Bearer token |
 | `LOG_LEVEL` | não | `info` (padrão) |
 | `MARKET_DATA_SYNC` | não | `true` (padrão) busca CDI, Selic e IPCA no Banco Central; `false` desliga |
+| `RECEIPT_LOOKUP` | não | `true` (padrão) consulta a NFC-e na Sefaz e a loja na BrasilAPI; `false` usa só o QR Code |
 | `ADMIN_TOKEN` | não | Permite lançar índices manualmente (`PUT /api/market-rates`, cabeçalho `X-Admin-Token`) |
 
 As migrations são aplicadas automaticamente na inicialização do contêiner (`prisma migrate deploy`).

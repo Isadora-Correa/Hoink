@@ -75,6 +75,11 @@ flowchart LR
   exige `ADMIN_TOKEN`, porque vale para todos os usuários, e nunca sobrescreve o dado oficial.
 - **Patrimônio**: ativos − passivos a partir das mesmas fontes (saldos derivados, carteira, dívidas, cartões e bens
   informados). Cada mês encerrado é gravado em `net_worth_snapshots`; o mês corrente é recalculado a cada consulta.
+- **Nota fiscal (NFC-e)**: o QR Code traz a chave de acesso (validada pelo dígito verificador) e o link da Sefaz.
+  O servidor só consulta domínios de Fazenda `*.gov.br` (e confere cada redirecionamento), com limite de tempo e de
+  tamanho, para não ser usado como proxy (SSRF). Se a página não puder ser lida (captcha, layout diferente), usa só o
+  que o QR traz. Nada é gravado na leitura: o formulário vem preenchido e o usuário confirma. A chave fica em
+  `transactions.receipt_key`, única por ambiente.
 - **Transferências** são duas pernas atômicas ligadas a um registro `transfers` e nunca entram em receitas/despesas
   (RN01). Entre Pessoal e Profissional exigem classificação gerencial (RN09); no Consolidado se anulam (RN10).
 - **Consolidado** pondera cada ambiente pela participação do usuário (`ownership_share_bps`), para não presumir que

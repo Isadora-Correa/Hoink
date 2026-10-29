@@ -33,6 +33,7 @@ conta transferências internas como receita ou despesa.
 | Investimentos (Fase 3) | CDB, LCI, LCA, Tesouro, fundos, ações, ETFs e outros, com motor por produto (% CDI/Selic, prefixado, IPCA+, cotas × preço, valor manual); aportes, resgates, proventos, custos, vencimentos, IR regressivo/isenção estimados, evolução e comparação |
 | Índices de mercado (Fase 3) | CDI, Selic e IPCA do Banco Central (SGS, API pública), sincronizados a cada 12 h; dados ausentes ficam sinalizados como desatualizados — nada é inventado |
 | Patrimônio (Fase 3) | Ativos (contas, cofrinhos, investimentos, bens) − passivos (dívidas, cartões, outras obrigações), sem dupla contagem, com fotografia mensal e histórico |
+| Nota fiscal | Lê o QR Code do cupom (NFC-e) pela câmera ou pelo link/chave colados, consulta a nota no site da Sefaz (somente domínios gov.br) e preenche loja, valor, data, categoria sugerida e itens; a mesma nota não é lançada duas vezes |
 | Privacidade | Olhinho no topo de todas as telas esconde todos os valores, inclusive gastos e gráficos |
 
 Costelinha IA e relatórios aparecem no app como **"Em construção"** (Fase 4), sem dados simulados.
