@@ -104,6 +104,9 @@ async function validateRefs(
   if (account.type === 'CREDIT_CARD') {
     throw unprocessable('USE_CARD_PURCHASE', 'Gastos no cartão são lançados como compras do cartão');
   }
+  if (account.type === 'PIGGY_BANK') {
+    throw unprocessable('USE_PIGGY_BANK', 'Use guardar/retirar do cofrinho para movimentá-lo');
+  }
   if (account.archivedAt) throw unprocessable('ACCOUNT_ARCHIVED', 'Conta arquivada não aceita novos lançamentos');
   if (settledDate && settledDate < formatDate(account.referenceDate)) {
     throw unprocessable(

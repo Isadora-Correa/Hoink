@@ -13,10 +13,14 @@ const envSchema = z.object({
   APP_VERSION: z.string().default('0.1.0'),
   /** Commit publicado (injetado no build da imagem) — identifica a versão em produção. */
   GIT_SHA: z.string().default('dev'),
-  /** Tentativas de autenticação por IP a cada 15 minutos. */
   /** Token opcional para proteger GET /metrics. */
   METRICS_TOKEN: z.string().optional(),
+  /** Tentativas de autenticação por IP a cada 15 minutos. */
   AUTH_RATE_LIMIT: z.coerce.number().int().min(1).default(20),
+  /** Busca CDI, Selic e IPCA no SGS do Banco Central (API pública). Desligue para operar só com taxas manuais. */
+  MARKET_DATA_SYNC: z.enum(['true', 'false']).default('true'),
+  /** Token de administração: permite lançar índices manualmente (valem para todos os usuários). Sem ele, ninguém lança. */
+  ADMIN_TOKEN: z.string().min(16).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
