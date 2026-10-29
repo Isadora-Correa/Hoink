@@ -158,4 +158,4 @@ Tabelas auxiliares: `password_reset_tokens`, `idempotency_keys`, `audit_logs`, `
 | 2 — Gestão financeira ✅ | Recorrências, clientes/fornecedores, contas a pagar/receber, cartões e faturas, dívidas, planejamento |
 | 3 — Patrimônio ✅ | Cofrinhos, lista de desejos e gamificação, investimentos com motores por produto, índices do Banco Central, patrimônio com snapshots |
 | 4 — Inteligência ✅ | Relatórios (PDF/XLSX/CSV), Costelinha IA (backend calcula, IA explica), insights, notificações, comparador de investimentos |
-| 5 — Produção | Endurecimento de segurança, testes de desempenho ampliados, publicação mobile |
+| 5 — Produção ✅ | Revisão de segurança (docs/SECURITY.md), E2E e carga cobrindo todas as fases, build Android no CI, preparação mobile (docs/MOBILE.md); falta escolher a hospedagem |

@@ -109,7 +109,8 @@ evidências: [docs/TESTING.md](docs/TESTING.md).
 - **CD** (`.github/workflows/cd.yml`), após o CI verde na `main` ou em tags `v*`: publica as imagens no
   GitHub Container Registry com a versão e o commit, dispara o deploy e verifica a versão publicada.
 
-Processo completo: [docs/DEPLOY.md](docs/DEPLOY.md).
+Processo completo: [docs/DEPLOY.md](docs/DEPLOY.md). O CI também compila o **APK Android** e o publica como
+artefato ([docs/MOBILE.md](docs/MOBILE.md)). Revisão de segurança: [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Monitoramento
 
