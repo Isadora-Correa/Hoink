@@ -8,6 +8,7 @@ import '../../../data/models.dart';
 import '../../../state/providers.dart';
 import '../../widgets/common.dart';
 import '../../widgets/page.dart';
+import '../../widgets/pig_avatar.dart';
 import '../reports/reports_screen.dart' show formatReportCell;
 
 final assistantSuggestionsProvider = FutureProvider<List<String>>(
@@ -105,9 +106,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
           Text('Como a Costelinha responde', style: HoinkText.labelMd),
           const SizedBox(height: 6),
           Text(
-            'Perguntas sobre o seu dinheiro são respondidas com números calculados pela hoink. a partir dos seus dados '
-            '(saldos, contas, faturas, cofrinhos e índices do Banco Central). Dúvidas comuns, como "o que é o CDI", '
-            'têm respostas prontas. Não usa IA paga, não movimenta dinheiro nem indica produtos específicos.',
+            'Ela calcula com os seus dados reais e tem respostas prontas para dúvidas comuns. É gratuita e não mexe no seu dinheiro.',
             style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant),
           ),
         ],
@@ -122,11 +121,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: Row(
               children: [
-                const IconBadge(
-                  Symbols.psychology,
-                  background: HoinkColors.tertiaryFixed,
-                  foreground: HoinkColors.tertiaryContainer,
-                ),
+                const PigAvatar(size: 44),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -195,7 +190,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
     );
 
     return ModulePage(
-      title: 'Costelinha IA',
+      title: 'Costelinha',
       subtitle: 'Sua assistente financeira: respostas prontas e cálculos feitos com os seus dados.',
       maxWidth: 1200,
       children: [
@@ -256,82 +251,97 @@ class _Exchange extends StatelessWidget {
             child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator(strokeWidth: 2)),
           )
         else
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: HoinkColors.surfaceLow,
-              borderRadius: BorderRadius.circular(HoinkRadius.lg),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(a.title, style: HoinkText.labelMd.copyWith(color: HoinkColors.primary)),
-                    ),
-                    Pill(
-                      a.isReadyAnswer ? 'Resposta pronta' : 'Calculado pela hoink.',
-                      icon: a.isReadyAnswer ? Symbols.menu_book : Symbols.calculate,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(a.text, style: HoinkText.bodyMd),
-                if (money.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  HeroCard(
-                    padding: const EdgeInsets.all(16),
-                    child: Wrap(
-                      spacing: 20,
-                      runSpacing: 12,
-                      children: [
-                        for (final f in money)
-                          SizedBox(
-                            width: 170,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  f.label.toUpperCase(),
-                                  style: HoinkText.labelSm.copyWith(color: HoinkColors.onPrimaryContainer),
-                                ),
-                                MoneyText((f.value as num).toInt(), style: HoinkText.headlineSm, color: Colors.white),
-                              ],
-                            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const PigAvatar(size: 36),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: HoinkColors.surfaceLow,
+                    borderRadius: BorderRadius.circular(HoinkRadius.lg),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(a.title, style: HoinkText.labelMd.copyWith(color: HoinkColors.primary)),
                           ),
+                          Pill(
+                            a.isReadyAnswer ? 'Resposta pronta' : 'Calculado pela hoink.',
+                            icon: a.isReadyAnswer ? Symbols.menu_book : Symbols.calculate,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(a.text, style: HoinkText.bodyMd),
+                      if (money.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        HeroCard(
+                          padding: const EdgeInsets.all(16),
+                          child: Wrap(
+                            spacing: 20,
+                            runSpacing: 12,
+                            children: [
+                              for (final f in money)
+                                SizedBox(
+                                  width: 170,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        f.label.toUpperCase(),
+                                        style: HoinkText.labelSm.copyWith(color: HoinkColors.onPrimaryContainer),
+                                      ),
+                                      MoneyText(
+                                        (f.value as num).toInt(),
+                                        style: HoinkText.headlineSm,
+                                        color: Colors.white,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ],
-                    ),
-                  ),
-                ],
-                for (final f in others)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: Text(f.label, style: HoinkText.bodySm)),
-                        Text(formatReportCell(f.type, f.value), style: HoinkText.labelSm),
+                      for (final f in others)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: Text(f.label, style: HoinkText.bodySm)),
+                              Text(formatReportCell(f.type, f.value), style: HoinkText.labelSm),
+                            ],
+                          ),
+                        ),
+                      if (a.sources.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          'Fontes: ${a.sources.map((s) => '${s.label}${s.date == null ? '' : ' (${formatBrDate(s.date!)})'}').join('; ')}',
+                          style: HoinkText.bodySm.copyWith(color: HoinkColors.outline, fontSize: 11),
+                        ),
                       ],
-                    ),
+                      if (a.suggestions.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final s in a.suggestions) ActionChip(label: Text(s), onPressed: () => onAsk(s)),
+                          ],
+                        ),
+                      ],
+                    ],
                   ),
-                if (a.sources.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    'Fontes: ${a.sources.map((s) => '${s.label}${s.date == null ? '' : ' (${formatBrDate(s.date!)})'}').join('; ')}',
-                    style: HoinkText.bodySm.copyWith(color: HoinkColors.outline, fontSize: 11),
-                  ),
-                ],
-                if (a.suggestions.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [for (final s in a.suggestions) ActionChip(label: Text(s), onPressed: () => onAsk(s))],
-                  ),
-                ],
-              ],
-            ),
+                ),
+              ),
+            ],
           ),
         const SizedBox(height: 20),
       ],

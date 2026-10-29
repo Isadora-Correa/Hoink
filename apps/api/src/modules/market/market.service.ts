@@ -122,9 +122,12 @@ export async function currentAnnualPct(kind: 'CDI_PERCENT' | 'SELIC_PERCENT' | '
   if (kind === 'PREFIXED') return rateBps / 100;
   const status = await marketStatus();
   if (kind === 'IPCA_PLUS') {
-    const ipca = status.find((s) => s.index === 'IPCA');
-    if (ipca?.ratePct === null || ipca?.ratePct === undefined) return null;
-    return ((1 + ipca.ratePct / 100) ** 12 * (1 + rateBps / 10000) - 1) * 100;
+    // IPCA acumulado nos últimos 12 meses divulgados (um mês isolado distorce a projeção anual).
+    const last12 = await prisma.marketRate.findMany({ where: { index: 'IPCA' }, orderBy: { date: 'desc' }, take: 12 });
+    if (last12.length === 0) return null;
+    const accumulated = last12.reduce((f, r) => f * (1 + Number(r.ratePct) / 100), 1);
+    const annualIpca = last12.length === 12 ? accumulated : accumulated ** (12 / last12.length);
+    return (annualIpca * (1 + rateBps / 10000) - 1) * 100;
   }
   const s = status.find((x) => x.index === (kind === 'CDI_PERCENT' ? 'CDI' : 'SELIC'));
   if (s?.ratePct === null || s?.ratePct === undefined) return null;

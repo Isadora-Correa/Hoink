@@ -102,6 +102,29 @@ describe('comparador e notificações', () => {
     expect(res.body.data.missingRates).toEqual(['CDB 110% CDI']);
   });
 
+  it('IPCA+ usa o IPCA acumulado dos últimos 12 meses, não um mês isolado', async () => {
+    const { prisma } = await import('../src/lib/prisma');
+    const { Prisma } = await import('@prisma/client');
+    const { parseDate } = await import('../src/lib/dates');
+    await prisma.marketRate.createMany({
+      data: Array.from({ length: 12 }, (_, i) => ({
+        index: 'IPCA' as const,
+        date: parseDate(`2025-${String(i + 1).padStart(2, '0')}-01`),
+        // Último mês bem mais alto: não pode ser multiplicado por 12.
+        ratePct: new Prisma.Decimal(i === 11 ? '0.82' : '0.40'),
+        source: 'BCB' as const,
+      })),
+    });
+    const res = await u.api.post('/api/assistant/compare-investments', {
+      amountCents: 1_000_000,
+      months: 12,
+      options: [{ label: 'IPCA+ 6%', indexer: 'IPCA_PLUS', rateBps: 600, taxation: 'REGRESSIVE' }],
+    });
+    const expected = (Math.pow(1.004, 11) * 1.0082 * 1.06 - 1) * 100;
+    expect(res.body.data.results[0].annualPct).toBeCloseTo(expected, 6);
+    expect(res.body.data.results[0].annualPct).toBeLessThan(12);
+  });
+
   it('gera notificações de contas e orçamentos sem repetir', async () => {
     const in1 = addDaysISO(today, 1);
     await u.api.post(`${base}/transactions`, { type: 'EXPENSE', description: 'Luz', amountCents: 25_000, accountId: acc.id, status: 'PENDING', competenceDate: in1, dueDate: in1 });

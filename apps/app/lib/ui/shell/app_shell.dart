@@ -9,17 +9,29 @@ import '../../state/providers.dart';
 import '../widgets/common.dart';
 import '../widgets/hoink_logo.dart';
 import '../widgets/notification_bell.dart';
+import '../widgets/pig_avatar.dart';
 import '../widgets/scope_switcher.dart';
 import '../widgets/user_avatar.dart';
 
 class NavItem {
-  const NavItem(this.path, this.label, this.icon, {this.badge, this.iconColor, this.businessOnly = false});
+  const NavItem(
+    this.path,
+    this.label,
+    this.icon, {
+    this.badge,
+    this.iconColor,
+    this.businessOnly = false,
+    this.pig = false,
+  });
   final String path;
   final String label;
   final IconData icon;
   final String? badge;
   final Color? iconColor;
   final bool businessOnly;
+
+  /// Usa o porquinho da marca no lugar do ícone (Costelinha).
+  final bool pig;
 }
 
 /// Menu lateral em grupos curtos. `businessOnly`: só aparece com conta profissional.
@@ -59,7 +71,7 @@ const sideNavGroups = <(String?, List<NavItem>)>[
   (
     'Mais',
     [
-      NavItem('/costelinha', 'Costelinha', Symbols.psychology, iconColor: HoinkColors.surfaceTint),
+      NavItem('/costelinha', 'Costelinha', Symbols.psychology, pig: true),
       NavItem('/relatorios', 'Relatórios', Symbols.bar_chart),
       NavItem('/contatos', 'Clientes e Fornecedores', Symbols.groups, businessOnly: true),
       NavItem('/configuracoes', 'Configurações', Symbols.settings),
@@ -75,7 +87,7 @@ const bottomNav = [
   NavItem('/lancamentos', 'Lançamentos', Symbols.receipt_long),
   NavItem('/cofrinhos', 'Cofrinhos', Symbols.savings),
   NavItem('/investimentos', 'Investir', Symbols.trending_up),
-  NavItem('/costelinha', 'Costelinha', Symbols.psychology),
+  NavItem('/costelinha', 'Costelinha', Symbols.psychology, pig: true),
 ];
 
 const desktopBreakpoint = 1024.0;
@@ -144,7 +156,7 @@ class AppShell extends ConsumerWidget {
         destinations: [
           for (final n in bottomNav)
             NavigationDestination(
-              icon: Icon(n.icon, color: HoinkColors.pine),
+              icon: n.pig ? const PigAvatar(size: 26, background: false) : Icon(n.icon, color: HoinkColors.pine),
               label: n.label,
             ),
         ],
@@ -225,7 +237,9 @@ class _SideNavTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
-                Icon(item.icon, size: 20, color: active ? fg : (item.iconColor ?? fg)),
+                item.pig
+                    ? const PigAvatar(size: 22, background: false)
+                    : Icon(item.icon, size: 20, color: active ? fg : (item.iconColor ?? fg)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(

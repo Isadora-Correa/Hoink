@@ -720,7 +720,7 @@ Future<void> showInvestmentComparator(BuildContext context, WidgetRef ref) async
       builder: (ctx, setState) => AlertDialog(
         title: const Text('Comparar aplicações'),
         content: SizedBox(
-          width: 620,
+          width: 560,
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -747,27 +747,47 @@ Future<void> showInvestmentComparator(BuildContext context, WidgetRef ref) async
                   ],
                 ),
                 const SizedBox(height: 12),
+                Text('Taxas oferecidas', style: HoinkText.labelMd),
+                const SizedBox(height: 8),
                 for (final r in rows)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                    decoration: BoxDecoration(
+                      color: HoinkColors.surfaceLow,
+                      borderRadius: BorderRadius.circular(HoinkRadius.md),
+                    ),
                     child: Row(
                       children: [
-                        Expanded(child: Text(r.label, style: HoinkText.labelMd)),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(r.label, style: HoinkText.labelMd),
+                              Text(
+                                r.taxation == 'EXEMPT' ? 'Isento de imposto de renda' : 'Paga imposto de renda',
+                                style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
                         SizedBox(
-                          width: 90,
+                          width: 150,
                           child: TextField(
                             controller: r.rate,
+                            textAlign: TextAlign.right,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            style: HoinkText.headlineSm,
                             decoration: InputDecoration(
-                              isDense: true,
-                              suffixText: r.indexer == 'CDI_PERCENT'
-                                  ? '% CDI'
-                                  : (r.indexer == 'IPCA_PLUS' ? '% + IPCA' : '% a.a.'),
+                              labelText: r.indexer == 'CDI_PERCENT'
+                                  ? '% do CDI'
+                                  : (r.indexer == 'IPCA_PLUS' ? 'IPCA + % ao ano' : '% ao ano'),
+                              filled: true,
+                              fillColor: HoinkColors.surfaceLowest,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Text(r.taxation == 'EXEMPT' ? 'Isento de IR' : 'IR regressivo', style: HoinkText.bodySm),
                       ],
                     ),
                   ),
@@ -809,32 +829,46 @@ Future<void> showInvestmentComparator(BuildContext context, WidgetRef ref) async
                 ),
                 if (results != null) ...[
                   const SizedBox(height: 16),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      columnSpacing: 18,
-                      columns: const [
-                        DataColumn(label: Text('Aplicação')),
-                        DataColumn(label: Text('Taxa a.a.'), numeric: true),
-                        DataColumn(label: Text('Bruto'), numeric: true),
-                        DataColumn(label: Text('IR'), numeric: true),
-                        DataColumn(label: Text('Líquido'), numeric: true),
-                      ],
-                      rows: [
-                        for (final (i, r) in results!.indexed)
-                          DataRow(
-                            color: i == 0 ? const WidgetStatePropertyAll(HoinkColors.primaryFixed) : null,
-                            cells: [
-                              DataCell(Text(r.label, style: i == 0 ? HoinkText.labelMd : null)),
-                              DataCell(Text('${r.annualPct.toStringAsFixed(2).replaceAll('.', ',')}%')),
-                              DataCell(Text(formatBRL(r.grossCents))),
-                              DataCell(Text(formatBRL(r.taxCents))),
-                              DataCell(Text(formatBRL(r.netCents), style: HoinkText.labelMd)),
-                            ],
+                  Text('Quanto você teria no fim do prazo, já descontado o IR', style: HoinkText.labelMd),
+                  const SizedBox(height: 8),
+                  for (final (i, r) in results!.indexed)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: i == 0 ? HoinkColors.primaryFixed : HoinkColors.surfaceLow,
+                        borderRadius: BorderRadius.circular(HoinkRadius.md),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 14,
+                            backgroundColor: i == 0 ? HoinkColors.pine : HoinkColors.surfaceHigh,
+                            child: Text(
+                              '${i + 1}º',
+                              style: HoinkText.labelSm.copyWith(
+                                color: i == 0 ? HoinkColors.ivory : HoinkColors.onSurface,
+                              ),
+                            ),
                           ),
-                      ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(r.label, style: HoinkText.labelMd),
+                                Text(
+                                  'Rende +${formatBRL(r.netGainCents)}'
+                                  '${r.taxCents > 0 ? ' (IR ${formatBRL(r.taxCents)})' : ' (sem IR)'}',
+                                  style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(formatBRL(r.netCents), style: HoinkText.headlineSm.copyWith(color: HoinkColors.primary)),
+                        ],
+                      ),
                     ),
-                  ),
                   if (missing.isNotEmpty)
                     Text(
                       'Sem dados do índice para: ${missing.join(', ')}.',
