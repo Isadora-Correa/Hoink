@@ -51,6 +51,9 @@ manual antes do deploy, se o grupo quiser.
 | `AUTH_RATE_LIMIT` | não | Tentativas de login por IP a cada 15 min (padrão 20) |
 | `METRICS_TOKEN` | recomendado | Protege `GET /metrics` com Bearer token |
 | `LOG_LEVEL` | não | `info` (padrão) |
+| `MARKET_DATA_SYNC` | não | `true` (padrão) busca CDI, Selic e IPCA no Banco Central; `false` desliga |
+| `RECEIPT_LOOKUP` | não | `true` (padrão) consulta a NFC-e na Sefaz e a loja na BrasilAPI; `false` usa só o QR Code |
+| `ADMIN_TOKEN` | não | Permite lançar índices manualmente (`PUT /api/market-rates`, cabeçalho `X-Admin-Token`) |
 
 As migrations são aplicadas automaticamente na inicialização do contêiner (`prisma migrate deploy`).
 
@@ -69,4 +72,5 @@ curl http://localhost:3333/version   # confere o commit
 ## Hospedagem
 
 O pipeline independe do provedor: qualquer serviço que rode uma imagem Docker e ofereça webhook de deploy
-(ou que puxe a tag `latest` do GHCR) funciona. A escolha da hospedagem gratuita será documentada aqui.
+(ou que puxe a tag `latest` do GHCR) funciona. Sugestão gratuita (Render + Neon) e alternativas, passo a passo:
+[HOSPEDAGEM.md](HOSPEDAGEM.md).

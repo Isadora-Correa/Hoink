@@ -287,4 +287,104 @@ class HoinkRepository {
           'accountIds': accountIds,
         }))['data'],
       );
+
+  // ── Cofrinhos e gamificação ──
+  Future<List<PiggyBank>> piggyBanks(String entityId) async =>
+      ((await api.get('/entities/$entityId/piggy-banks'))['data'] as List).map((p) => PiggyBank(p)).toList();
+  Future<PiggyBank> piggyBank(String entityId, String id) async =>
+      PiggyBank((await api.get('/entities/$entityId/piggy-banks/$id'))['data']);
+  Future<PiggyResult> savePiggy(String entityId, Map<String, Object?> body, {String? id}) async => PiggyResult(
+    (id == null
+        ? await api.post('/entities/$entityId/piggy-banks', body)
+        : await api.patch('/entities/$entityId/piggy-banks/$id', body))['data'],
+  );
+
+  /// [action]: `deposit`, `withdraw`, `yield` ou `achieve`.
+  Future<PiggyResult> piggyAction(String entityId, String id, String action, Map<String, Object?> body) async =>
+      PiggyResult((await api.post('/entities/$entityId/piggy-banks/$id/$action', body, newIdempotencyKey()))['data']);
+  Future<void> archivePiggy(String entityId, String id) => api.post('/entities/$entityId/piggy-banks/$id/archive');
+  Future<PiggySimulation> simulatePiggy(String entityId, String id, int monthlyCents, int months) async =>
+      PiggySimulation(
+        (await api.get(
+          '/entities/$entityId/piggy-banks/$id/simulate',
+          query: {'monthlyCents': monthlyCents, 'months': months},
+        ))['data'],
+      );
+  Future<GamificationProfile> gamification() async => GamificationProfile((await api.get('/gamification'))['data']);
+  Future<List<MarketRateStatus>> marketRates() async =>
+      ((await api.get('/market-rates'))['data'] as List).map((m) => MarketRateStatus(m)).toList();
+
+  // ── Investimentos ──
+  Future<List<Investment>> investments(String entityId) async =>
+      ((await api.get('/entities/$entityId/investments'))['data'] as List).map((i) => Investment(i)).toList();
+  Future<Investment> investment(String entityId, String id) async =>
+      Investment((await api.get('/entities/$entityId/investments/$id'))['data']);
+  Future<Investment> createInvestment(String entityId, Map<String, Object?> body) async =>
+      Investment((await api.post('/entities/$entityId/investments', body, newIdempotencyKey()))['data']);
+
+  /// [path]: `contributions`, `redemptions`, `income` ou `value`.
+  Future<Investment> investmentAction(String entityId, String id, String path, Map<String, Object?> body) async =>
+      Investment((await api.post('/entities/$entityId/investments/$id/$path', body, newIdempotencyKey()))['data']);
+  Future<Investment> deleteInvestmentMovement(String entityId, String id, String movementId) async =>
+      Investment((await api.delete('/entities/$entityId/investments/$id/movements/$movementId'))['data']);
+  Future<void> updateInvestment(String entityId, String id, Map<String, Object?> body) =>
+      api.patch('/entities/$entityId/investments/$id', body);
+
+  // ── Patrimônio ──
+  Future<Patrimony> patrimony({String? entityId}) async => Patrimony(
+    (await api.get(entityId == null ? '/consolidated/patrimony' : '/entities/$entityId/patrimony'))['data'],
+  );
+  Future<void> savePatrimonyItem(String entityId, Map<String, Object?> body, {String? id}) => id == null
+      ? api.post('/entities/$entityId/patrimony/items', body)
+      : api.patch('/entities/$entityId/patrimony/items/$id', body);
+  Future<void> deletePatrimonyItem(String entityId, String id) => api.delete('/entities/$entityId/patrimony/items/$id');
+
+  // ── Nota fiscal ──
+  /// Lê o QR Code (link) ou a chave de acesso de uma NFC-e e devolve a prévia do gasto.
+  Future<ReceiptPreview> receiptPreview(String entityId, String qr) async =>
+      ReceiptPreview((await api.post('/entities/$entityId/receipts/preview', {'qr': qr}))['data']);
+
+  // ── Relatórios ──
+  Future<List<({String type, String title})>> reportTypes() async => ((await api.get('/reports'))['data'] as List)
+      .map((t) => (type: t['type'] as String, title: t['title'] as String))
+      .toList();
+
+  String _reportPath(String? entityId, String type) =>
+      entityId == null ? '/consolidated/reports/$type' : '/entities/$entityId/reports/$type';
+
+  /// Prévia (JSON) do relatório; [query]: period, ref, from, to, categoryId.
+  Future<Report> report(String? entityId, String type, Map<String, Object?> query) async =>
+      Report((await api.get(_reportPath(entityId, type), query: query))['data']);
+
+  /// Arquivo do relatório em `pdf`, `xlsx` ou `csv`, com os mesmos números da prévia.
+  Future<Uint8List?> reportFile(String? entityId, String type, String format, Map<String, Object?> query) =>
+      api.getBytes(_reportPath(entityId, type), query: {...query, 'format': format});
+
+  // ── Costelinha ──
+  /// Perguntas sugeridas da Costelinha.
+  Future<List<String>> assistantSuggestions() async =>
+      List<String>.from((await api.get('/assistant'))['data']['suggestions'] as List);
+
+  Future<AssistantAnswer> ask(String? entityId, String question) async => AssistantAnswer(
+    (await api.post(entityId == null ? '/assistant/ask' : '/entities/$entityId/assistant/ask', {
+      'question': question,
+    }))['data'],
+  );
+
+  Future<({List<CompareResult> results, List<String> missing})> compareInvestments(Map<String, Object?> body) async {
+    final d = (await api.post('/assistant/compare-investments', body))['data'];
+    return (
+      results: (d['results'] as List).map((r) => CompareResult(r)).toList(),
+      missing: List<String>.from(d['missingRates'] as List),
+    );
+  }
+
+  // ── Notificações ──
+  Future<({int unread, List<AppNotification> items})> notifications() async {
+    final d = (await api.get('/notifications'))['data'];
+    return (unread: d['unread'] as int, items: (d['items'] as List).map((n) => AppNotification(n)).toList());
+  }
+
+  Future<void> markNotificationRead(String id) => api.post('/notifications/$id/read');
+  Future<void> markAllNotificationsRead() => api.post('/notifications/read-all');
 }

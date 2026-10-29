@@ -8,6 +8,7 @@ import { prisma } from '../../lib/prisma';
 import { audit } from '../audit/audit.service';
 import { addSettlement } from '../settlements/settlements';
 import { accountBalances, settledMovementWhere, settledNetByAccount } from './balances';
+import { cashAccountType } from '../../lib/ledgers';
 
 type Ctx = { userId: string; entityId: string; ip?: string };
 
@@ -29,7 +30,7 @@ export function serializeAccount(a: Account, balanceCents: number) {
 }
 
 export async function getAccountOrThrow(entityId: string, accountId: string) {
-  const a = await prisma.account.findFirst({ where: { id: accountId, entityId, type: { not: 'CREDIT_CARD' } } });
+  const a = await prisma.account.findFirst({ where: { id: accountId, entityId, type: cashAccountType } });
   if (!a) throw notFound('Conta não encontrada');
   return a;
 }
@@ -37,7 +38,7 @@ export async function getAccountOrThrow(entityId: string, accountId: string) {
 export async function listAccounts(entityId: string, includeArchived = false) {
   const accounts = await prisma.account.findMany({
     // Cartões têm conta-razão própria (limite comprometido), mas não são dinheiro disponível.
-    where: { entityId, type: { not: 'CREDIT_CARD' }, ...(includeArchived ? {} : { archivedAt: null }) },
+    where: { entityId, type: cashAccountType, ...(includeArchived ? {} : { archivedAt: null }) },
     orderBy: [{ archivedAt: { sort: 'asc', nulls: 'first' } }, { createdAt: 'asc' }],
   });
   const balances = await accountBalances(accounts);

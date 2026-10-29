@@ -9,6 +9,7 @@ import { toCents } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
 import { audit } from '../audit/audit.service';
 import { resolveContact, serializeTransaction, transactionInclude } from '../transactions/transactions.service';
+import { cashAccountType } from '../../lib/ledgers';
 
 type Ctx = { userId: string; entityId: string; ip?: string };
 
@@ -105,7 +106,7 @@ async function validateRefs(
 ) {
   if (contactId) await resolveContact(db, entityId, contactId);
   if (accountId) {
-    const account = await db.account.findFirst({ where: { id: accountId, entityId, archivedAt: null, type: { not: 'CREDIT_CARD' } } });
+    const account = await db.account.findFirst({ where: { id: accountId, entityId, archivedAt: null, type: cashAccountType } });
     if (!account) throw unprocessable('INVALID_ACCOUNT', 'Conta não pertence a este ambiente');
   }
   if (categoryId) {

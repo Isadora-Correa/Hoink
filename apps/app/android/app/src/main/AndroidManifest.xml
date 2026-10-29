@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- A versão de produção precisa falar com a API (o Flutter só declara INTERNET em debug/profile). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Leitura do QR Code da nota fiscal. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
-        android:label="hoink"
+        android:label="hoink."
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

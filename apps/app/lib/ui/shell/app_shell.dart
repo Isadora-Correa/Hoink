@@ -6,42 +6,88 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../app/theme.dart';
 import '../../core/dates.dart';
 import '../../state/providers.dart';
+import '../widgets/common.dart';
 import '../widgets/hoink_logo.dart';
+import '../widgets/notification_bell.dart';
+import '../widgets/pig_avatar.dart';
 import '../widgets/scope_switcher.dart';
 import '../widgets/user_avatar.dart';
 
 class NavItem {
-  const NavItem(this.path, this.label, this.icon, {this.badge, this.iconColor});
+  const NavItem(
+    this.path,
+    this.label,
+    this.icon, {
+    this.badge,
+    this.iconColor,
+    this.businessOnly = false,
+    this.pig = false,
+  });
   final String path;
   final String label;
   final IconData icon;
   final String? badge;
   final Color? iconColor;
+  final bool businessOnly;
+
+  /// Usa o porquinho da marca no lugar do ícone (Costelinha).
+  final bool pig;
 }
 
-const sideNav = [
-  NavItem('/', 'Início', Symbols.grid_view),
-  NavItem('/lancamentos', 'Lançamentos', Symbols.receipt_long),
-  NavItem('/recorrencias', 'Recorrências', Symbols.event_repeat),
-  NavItem('/contas-a-pagar', 'Pagar e Receber', Symbols.request_quote),
-  NavItem('/contatos', 'Clientes e Fornecedores', Symbols.groups),
-  NavItem('/contas', 'Minhas Contas', Symbols.account_balance),
-  NavItem('/cartoes', 'Cartões', Symbols.credit_card),
-  NavItem('/dividas', 'Dívidas', Symbols.credit_score),
-  NavItem('/cofrinhos', 'Cofrinhos', Symbols.savings, iconColor: HoinkColors.tertiaryFixedDim),
-  NavItem('/investimentos', 'Investimentos', Symbols.trending_up),
-  NavItem('/planejamento', 'Planejamento', Symbols.calendar_month),
-  NavItem('/costelinha', 'Costelinha IA', Symbols.psychology, badge: 'IA', iconColor: HoinkColors.surfaceTint),
-  NavItem('/relatorios', 'Relatórios', Symbols.bar_chart),
-  NavItem('/configuracoes', 'Configurações', Symbols.settings),
+/// Menu lateral em grupos curtos. `businessOnly`: só aparece com conta profissional.
+const sideNavGroups = <(String?, List<NavItem>)>[
+  (
+    null,
+    [
+      NavItem('/', 'Início', Symbols.grid_view),
+      NavItem('/lancamentos', 'Lançamentos', Symbols.receipt_long),
+      NavItem('/contas-a-pagar', 'Pagar e Receber', Symbols.request_quote),
+    ],
+  ),
+  (
+    'Contas',
+    [
+      NavItem('/contas', 'Minhas Contas', Symbols.account_balance),
+      NavItem('/extrato', 'Extrato', Symbols.description),
+      NavItem('/cartoes', 'Cartões', Symbols.credit_card),
+    ],
+  ),
+  (
+    'Planejar',
+    [
+      NavItem('/planejamento', 'Planejamento', Symbols.calendar_month),
+      NavItem('/recorrencias', 'Contas fixas', Symbols.event_repeat),
+      NavItem('/dividas', 'Dívidas', Symbols.credit_score),
+    ],
+  ),
+  (
+    'Guardar e investir',
+    [
+      NavItem('/cofrinhos', 'Cofrinhos', Symbols.savings, iconColor: HoinkColors.tertiaryFixedDim),
+      NavItem('/investimentos', 'Investimentos', Symbols.trending_up),
+      NavItem('/patrimonio', 'Patrimônio', Symbols.account_balance_wallet),
+    ],
+  ),
+  (
+    'Mais',
+    [
+      NavItem('/costelinha', 'Costelinha', Symbols.psychology, pig: true),
+      NavItem('/relatorios', 'Relatórios', Symbols.bar_chart),
+      NavItem('/contatos', 'Clientes e Fornecedores', Symbols.groups, businessOnly: true),
+      NavItem('/configuracoes', 'Configurações', Symbols.settings),
+    ],
+  ),
 ];
+
+/// Todos os itens do menu (para destaque do item ativo e testes).
+final sideNav = [for (final g in sideNavGroups) ...g.$2];
 
 const bottomNav = [
   NavItem('/', 'Início', Symbols.home),
-  NavItem('/lancamentos', 'Extrato', Symbols.receipt_long),
+  NavItem('/lancamentos', 'Lançamentos', Symbols.receipt_long),
   NavItem('/cofrinhos', 'Cofrinhos', Symbols.savings),
   NavItem('/investimentos', 'Investir', Symbols.trending_up),
-  NavItem('/costelinha', 'Costelinha', Symbols.psychology),
+  NavItem('/costelinha', 'Costelinha', Symbols.psychology, pig: true),
 ];
 
 const desktopBreakpoint = 1024.0;
@@ -110,7 +156,7 @@ class AppShell extends ConsumerWidget {
         destinations: [
           for (final n in bottomNav)
             NavigationDestination(
-              icon: Icon(n.icon, color: HoinkColors.pine),
+              icon: n.pig ? const PigAvatar(size: 26, background: false) : Icon(n.icon, color: HoinkColors.pine),
               label: n.label,
             ),
         ],
@@ -119,12 +165,13 @@ class AppShell extends ConsumerWidget {
   }
 }
 
-class _Sidebar extends StatelessWidget {
+class _Sidebar extends ConsumerWidget {
   const _Sidebar({required this.location});
   final String location;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasBusiness = ref.watch(hasBusinessProvider);
     return Container(
       width: 260,
       decoration: const BoxDecoration(
@@ -143,8 +190,24 @@ class _Sidebar extends StatelessWidget {
           const ScopeSwitcher(compact: true, expand: true),
           const SizedBox(height: 24),
           Expanded(
-            child: ListView(
-              children: [for (final n in sideNav) _SideNavTile(item: n, active: _isActive(location, n.path))],
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (title, items) in sideNavGroups) ...[
+                    if (title != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 18, 12, 6),
+                        child: Text(
+                          title.toUpperCase(),
+                          style: HoinkText.labelSm.copyWith(color: HoinkColors.outline, letterSpacing: 1),
+                        ),
+                      ),
+                    for (final n in items)
+                      if (!n.businessOnly || hasBusiness) _SideNavTile(item: n, active: _isActive(location, n.path)),
+                  ],
+                ],
+              ),
             ),
           ),
         ],
@@ -174,7 +237,9 @@ class _SideNavTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
-                Icon(item.icon, size: 20, color: active ? fg : (item.iconColor ?? fg)),
+                item.pig
+                    ? const PigAvatar(size: 22, background: false)
+                    : Icon(item.icon, size: 20, color: active ? fg : (item.iconColor ?? fg)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -286,6 +351,9 @@ class _TopBarState extends ConsumerState<_TopBar> {
             ),
           ),
           const Spacer(),
+          const PrivacyToggle(),
+          const NotificationBell(),
+          const SizedBox(width: 8),
           FilledButton.icon(
             style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
             onPressed: () => context.push('/lancamentos/novo'),
@@ -329,21 +397,30 @@ class UserMenu extends ConsumerWidget {
             context.go('/dividas');
           case 'planejamento':
             context.go('/planejamento');
+          case 'patrimonio':
+            context.go('/patrimonio');
           case 'config':
             context.go('/configuracoes');
+          case 'extrato':
+            context.go('/extrato');
+          case 'guia':
+            context.go('/guia-de-testes');
           case 'sair':
             await ref.read(authProvider.notifier).logout();
         }
       },
       itemBuilder: (_) => const [
         PopupMenuItem(value: 'contas', child: Text('Minhas Contas')),
+        PopupMenuItem(value: 'extrato', child: Text('Extrato')),
         PopupMenuItem(value: 'recorrencias', child: Text('Recorrências')),
         PopupMenuItem(value: 'pagar', child: Text('Pagar e Receber')),
         PopupMenuItem(value: 'contatos', child: Text('Clientes e Fornecedores')),
         PopupMenuItem(value: 'cartoes', child: Text('Cartões')),
         PopupMenuItem(value: 'dividas', child: Text('Dívidas')),
         PopupMenuItem(value: 'planejamento', child: Text('Planejamento')),
+        PopupMenuItem(value: 'patrimonio', child: Text('Patrimônio')),
         PopupMenuItem(value: 'config', child: Text('Configurações')),
+        PopupMenuItem(value: 'guia', child: Text('Guia de testes')),
         PopupMenuDivider(),
         PopupMenuItem(value: 'sair', child: Text('Sair')),
       ],
@@ -378,7 +455,8 @@ class _MobileHeader extends ConsumerWidget {
               child: FittedBox(fit: BoxFit.scaleDown, child: ScopeSwitcher(compact: true)),
             ),
           ),
-          const SizedBox(width: 10),
+          const PrivacyToggle(),
+          const NotificationBell(),
           if (user != null) UserMenu(name: user.name, initials: user.initials),
         ],
       ),

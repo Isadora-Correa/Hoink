@@ -22,6 +22,7 @@ import { toCents } from '../../lib/money';
 import { prisma, type Tx } from '../../lib/prisma';
 import { audit } from '../audit/audit.service';
 import { addSettlement } from '../settlements/settlements';
+import { cashAccountType } from '../../lib/ledgers';
 
 type Ctx = { userId: string; entityId: string; ip?: string };
 
@@ -181,7 +182,7 @@ async function debtCategoryId(db: Tx, entityId: string, requested: string | null
 }
 
 async function paymentAccount(db: Tx, entityId: string, id: string) {
-  const a = await db.account.findFirst({ where: { id, entityId, archivedAt: null, type: { not: 'CREDIT_CARD' } } });
+  const a = await db.account.findFirst({ where: { id, entityId, archivedAt: null, type: cashAccountType } });
   if (!a) throw unprocessable('INVALID_ACCOUNT', 'Conta de pagamento não pertence a este ambiente');
   return a;
 }

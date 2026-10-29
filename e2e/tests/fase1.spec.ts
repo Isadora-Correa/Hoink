@@ -64,6 +64,7 @@ test('cria uma conta recorrente pela interface e as próximas ocorrências são 
   await typeInto(page, 'Descrição da despesa', 'Conta de energia E2E');
   await (await reveal(page, page.getByRole('button', { name: 'Origem do dinheiro' }))).click();
   await page.getByRole('menuitem', { name: /Conta E2E/ }).or(page.getByRole('button', { name: /Conta E2E/ })).last().click();
+  await (await reveal(page, page.getByRole('button', { name: /Mais opções/ }))).click();
   await (await reveal(page, page.getByRole('switch', { name: /recorrente/ }).or(page.getByRole('checkbox', { name: /recorrente/ })).first())).click();
   await (await reveal(page, page.getByRole('button', { name: 'Variável' }))).click();
   await (await reveal(page, page.getByRole('button', { name: 'Salvar despesa' }))).click();

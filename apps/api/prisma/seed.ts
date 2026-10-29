@@ -11,6 +11,9 @@ import { addDaysISO } from '../src/domain/recurrence';
 import { createAccount } from '../src/modules/accounts/accounts.service';
 import { createCard, createPurchase, getCard, payInvoice } from '../src/modules/cards/cards.service';
 import { createDebt } from '../src/modules/debts/debts.service';
+import { createInvestment, move, updateValue } from '../src/modules/investments/investments.service';
+import { createItem } from '../src/modules/patrimony/patrimony.service';
+import { createPiggy, deposit } from '../src/modules/piggy/piggy.service';
 import { updateReserve, upsertBudget } from '../src/modules/planning/planning.service';
 import { signup } from '../src/modules/auth/auth.service';
 import { listEntities } from '../src/modules/entities/entities.service';
@@ -31,10 +34,14 @@ async function resetDemo() {
       await tx.transaction.findMany({ where: { entityId: { in: entityIds }, transferId: { not: null } }, select: { transferId: true } })
     ).map((t) => t.transferId!);
     await tx.debtInstallment.deleteMany({ where: { debt: { entityId: { in: entityIds } } } });
+    await tx.investmentMovement.deleteMany({ where: { investment: { entityId: { in: entityIds } } } });
+    await tx.investment.deleteMany({ where: { entityId: { in: entityIds } } });
+    await tx.patrimonyItem.deleteMany({ where: { entityId: { in: entityIds } } });
     await tx.transaction.deleteMany({ where: { entityId: { in: entityIds } } });
     await tx.cardPurchase.deleteMany({ where: { entityId: { in: entityIds } } });
     await tx.cardInvoice.deleteMany({ where: { card: { entityId: { in: entityIds } } } });
     await tx.creditCard.deleteMany({ where: { entityId: { in: entityIds } } });
+    await tx.piggyBank.deleteMany({ where: { entityId: { in: entityIds } } });
     await tx.debt.deleteMany({ where: { entityId: { in: entityIds } } });
     await tx.recurringRule.deleteMany({ where: { entityId: { in: entityIds } } });
     await tx.contact.deleteMany({ where: { entityId: { in: entityIds } } });
@@ -67,8 +74,8 @@ async function main() {
   const day = (m: string, d: number) => `${m}-${String(d).padStart(2, '0')}`;
   const today = todayISO();
 
-  const nubank = await createAccount(ctxPF, { name: 'Nubank Ultravioleta', institution: 'Nubank', type: 'CHECKING', initialBalanceCents: 320000, referenceDate: start });
-  const itau = await createAccount(ctxPF, { name: 'Itaú Personnalité', institution: 'Itaú', type: 'CHECKING', initialBalanceCents: 150000, referenceDate: start });
+  const nubank = await createAccount(ctxPF, { name: 'Nubank Ultravioleta', institution: 'Nubank', type: 'CHECKING', initialBalanceCents: 900000, referenceDate: start });
+  const itau = await createAccount(ctxPF, { name: 'Itaú Personnalité', institution: 'Itaú', type: 'CHECKING', initialBalanceCents: 450000, referenceDate: start });
   const inter = await createAccount(ctxPJ, { name: 'Banco Inter PJ', institution: 'Inter', type: 'PAYMENT', initialBalanceCents: 500000, referenceDate: start });
 
   const cats = await prisma.category.findMany({ where: { entityId: { in: [pf, pj] } } });
@@ -164,7 +171,7 @@ async function main() {
   await updateReserve(ctxPF, { targetMonths: 6, accountIds: [reserva.id] });
 
   // Cartão de crédito com compras à vista e parceladas; faturas vencidas já pagas pela conta.
-  const card = await createCard(ctxPF, { name: 'Nubank Roxinho', institution: 'Nubank', brand: 'Mastercard', limitCents: 1200000, closingDay: 3, dueDay: 10, paymentAccountId: nubank.id, color: '#6C3643' });
+  const card = await createCard(ctxPF, { name: 'Nubank Roxinho', institution: 'Nubank', brand: 'Mastercard', limitCents: 1200000, closingDay: 3, dueDay: 10, paymentAccountId: itau.id, color: '#6C3643' });
   const purchases: [string, number, number, string, string][] = [
     ['Notebook Dell Inspiron', 420000, 10, day(shiftMonth(month, -3), 18), 'Educação'],
     ['Passagem aérea Floripa', 135000, 3, day(shiftMonth(month, -1), 22), 'Lazer'],
@@ -178,7 +185,7 @@ async function main() {
   }
   for (const inv of (await getCard(pf, card.id)).pendingInvoices) {
     if (inv.dueDate < today && inv.id) {
-      await payInvoice(ctxPF, card.id, inv.id, { fromAccountId: nubank.id, date: inv.dueDate });
+      await payInvoice(ctxPF, card.id, inv.id, { fromAccountId: itau.id, date: inv.dueDate });
     }
   }
 
@@ -198,6 +205,59 @@ async function main() {
   for (const [c, limit] of [['Mercado', 60000], ['Alimentação', 30000], ['Lazer', 25000], ['Transporte', 12000]] as const) {
     await upsertBudget(ctxPF, { categoryId: cat(pf, c), limitCents: limit, alertThresholdBps: 8000 });
   }
+
+  // Cofrinhos e lista de desejos (o exemplo do PDF: Reserva de R$ 5.000 com meta de R$ 20.000 a 115% do CDI).
+  const piggies = [
+    { kind: 'RESERVE', name: 'Reserva de Emergência', goal: 2000000, yieldKind: 'CDI_PERCENT', rate: 11500, icon: 'health_and_safety', deposits: [[90, 500000]] },
+    { kind: 'WISH', name: 'PS5 para o namorado', goal: 420000, link: 'https://www.playstation.com/pt-br/ps5/', priority: 1, icon: 'sports_esports', deposits: [[35, 30000], [28, 30000], [21, 30000], [14, 30000], [7, 30000], [1, 30000]] },
+    { kind: 'WISH', name: 'Drone DJI Mini', goal: 550000, priority: 2, icon: 'flight', deposits: [[40, 80000]] },
+    { kind: 'GOAL', name: 'Viagem para Floripa', goal: 600000, yieldKind: 'CDI_PERCENT', rate: 10000, icon: 'beach_access', target: 8, deposits: [[60, 120000], [30, 120000]] },
+  ] as const;
+  for (const p of piggies) {
+    const { piggy } = await createPiggy(ctxPF, {
+      kind: p.kind,
+      name: p.name,
+      institution: 'Nubank',
+      goalCents: p.goal,
+      link: 'link' in p ? p.link : null,
+      priority: 'priority' in p ? p.priority : 3,
+      icon: p.icon,
+      targetDate: 'target' in p ? `${shiftMonth(month, p.target)}-15` : null,
+      yieldKind: 'yieldKind' in p ? p.yieldKind : 'NONE',
+      yieldRateBps: 'rate' in p ? p.rate : 0,
+      liquidity: 'DAILY',
+      liquidityDays: 0,
+      taxation: 'REGRESSIVE',
+    });
+    for (const [daysAgo, cents] of p.deposits) {
+      const date = addDaysISO(today, -daysAgo);
+      if (date < start) continue;
+      await deposit(ctxPF, piggy.id, { accountId: nubank.id, amountCents: cents, date });
+    }
+  }
+
+  // Investimentos: cada produto com seu motor de cálculo.
+  const cdb = await createInvestment(ctxPF, {
+    kind: 'CDB', name: 'CDB Banco Inter 110% CDI', institution: 'Inter', indexer: 'CDI_PERCENT', rateBps: 11000,
+    maturityDate: `${shiftMonth(month, 24)}-15`, liquidity: 'DAILY', liquidityDays: 0, costsBps: 0,
+    initial: { date: day(shiftMonth(month, -4), 5), amountCents: 1000000, accountId: itau.id },
+  });
+  await move(ctxPF, cdb.id, 'CONTRIBUTION', { date: day(shiftMonth(month, -1), 5), amountCents: 300000, accountId: itau.id });
+  await createInvestment(ctxPF, {
+    kind: 'TESOURO', name: 'Tesouro IPCA+ 2035', institution: 'Tesouro Direto', indexer: 'IPCA_PLUS', rateBps: 650,
+    maturityDate: '2035-05-15', liquidity: 'D_PLUS', liquidityDays: 1, costsBps: 20,
+    initial: { date: day(shiftMonth(month, -14), 10), amountCents: 500000 },
+  });
+  const itsa = await createInvestment(ctxPF, {
+    kind: 'STOCK', name: 'Itaúsa', ticker: 'ITSA4', institution: 'XP', indexer: 'MARKET', rateBps: 0,
+    liquidity: 'D_PLUS', liquidityDays: 2, costsBps: 0,
+    initial: { date: day(shiftMonth(month, -8), 12), amountCents: 210000, quantity: 200 },
+  });
+  await updateValue(ctxPF, itsa.id, { date: addDaysISO(today, -2), unitPriceCents: 1120 });
+  await move(ctxPF, itsa.id, 'INCOME', { date: day(shiftMonth(month, -2), 1), amountCents: 2840, accountId: nubank.id });
+
+  // Bens: o carro do financiamento.
+  await createItem(ctxPF, { side: 'ASSET', category: 'Veículo', name: 'Chevrolet Onix 2024', valueCents: 7200000, valuedAt: day(shiftMonth(month, -12), 15) });
 
   console.log(`Seed concluído. Login: ${EMAIL} / hoink1234`);
 }

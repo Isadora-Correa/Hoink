@@ -12,6 +12,7 @@ import { audit } from '../audit/audit.service';
 import { addSettlement } from '../settlements/settlements';
 import { serializeTransaction, transactionInclude } from '../transactions/transactions.service';
 import { createTransfer } from '../transfers/transfers.service';
+import { cashAccountType } from '../../lib/ledgers';
 
 type Ctx = { userId: string; entityId: string; ip?: string };
 type CardRow = CreditCard & { account: Account; paymentAccount: Account | null };
@@ -118,7 +119,7 @@ export async function getCard(entityId: string, cardId: string) {
 
 async function validatePaymentAccount(db: Tx, entityId: string, id: string | null | undefined) {
   if (!id) return;
-  const a = await db.account.findFirst({ where: { id, entityId, archivedAt: null, type: { not: 'CREDIT_CARD' } } });
+  const a = await db.account.findFirst({ where: { id, entityId, archivedAt: null, type: cashAccountType } });
   if (!a) throw unprocessable('INVALID_ACCOUNT', 'Conta de pagamento não pertence a este ambiente');
 }
 

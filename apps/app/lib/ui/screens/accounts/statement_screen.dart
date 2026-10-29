@@ -21,9 +21,12 @@ final _statementProvider = FutureProvider.family<Statement, _StatementArgs>((ref
 
 /// Extrato de uma conta: saldo de abertura, movimentações liquidadas e saldo acumulado.
 class StatementScreen extends ConsumerWidget {
-  const StatementScreen({super.key, required this.entityId, required this.accountId});
+  const StatementScreen({super.key, required this.entityId, required this.accountId, this.showBack = true});
   final String entityId;
   final String accountId;
+
+  /// Falso quando o extrato aparece dentro da tela "Extrato" (que já tem a escolha da conta).
+  final bool showBack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -43,12 +46,14 @@ class StatementScreen extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      IconButton(
-                        onPressed: () => context.go('/contas'),
-                        icon: const Icon(Symbols.arrow_back),
-                        tooltip: 'Voltar',
-                      ),
-                      const SizedBox(width: 8),
+                      if (showBack) ...[
+                        IconButton(
+                          onPressed: () => context.go('/contas'),
+                          icon: const Icon(Symbols.arrow_back),
+                          tooltip: 'Voltar',
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,4 +175,65 @@ class _EntryRow extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// Extrato no menu: escolhe a conta (do ambiente atual ou de todos no Total) e mostra o extrato do mês.
+class StatementHubScreen extends ConsumerStatefulWidget {
+  const StatementHubScreen({super.key});
+  @override
+  ConsumerState<StatementHubScreen> createState() => _StatementHubScreenState();
+}
+
+class _StatementHubScreenState extends ConsumerState<StatementHubScreen> {
+  String? _accountId;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = ref.watch(effectiveScopeProvider);
+    final entities = ref.watch(entitiesProvider).value ?? const <FinancialEntity>[];
+    final current = ref.watch(currentEntityProvider);
+    final shown = scope == Scope.total ? entities : [?current];
+    final accounts = <Account>[
+      for (final e in shown)
+        ...(ref.watch(accountsProvider(e.id)).value ?? const <Account>[]).where((a) => !a.archived),
+    ];
+    if (accounts.isEmpty) {
+      return const EmptyState(
+        title: 'Nenhuma conta',
+        message: 'Cadastre uma conta em Minhas Contas para ver o extrato.',
+      );
+    }
+    final selected = accounts.where((a) => a.id == _accountId).firstOrNull ?? accounts.first;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text('Conta:', style: HoinkText.labelMd),
+              for (final a in accounts)
+                ChoiceChip(
+                  key: Key('statement-account-${a.id}'),
+                  label: Text(a.name),
+                  selected: a.id == selected.id,
+                  onSelected: (_) => setState(() => _accountId = a.id),
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: StatementScreen(
+            key: ValueKey(selected.id),
+            entityId: selected.entityId,
+            accountId: selected.id,
+            showBack: false,
+          ),
+        ),
+      ],
+    );
+  }
 }

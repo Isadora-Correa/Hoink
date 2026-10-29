@@ -7,6 +7,7 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'app/router.dart';
+import 'state/providers.dart';
 import 'app/theme.dart';
 
 Future<void> main() async {
@@ -24,6 +25,16 @@ class HoinkApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Olhinho: valores em texto comum (formatBRL) não observam o provider; redesenha a árvore inteira
+    // preservando o estado (formulários, navegação), para que nenhum valor fique visível.
+    ref.listen(hideValuesProvider, (_, _) {
+      void rebuild(Element e) {
+        e.markNeedsBuild();
+        e.visitChildren(rebuild);
+      }
+
+      (context as Element).visitChildren(rebuild);
+    });
     return MaterialApp.router(
       title: 'hoink.',
       debugShowCheckedModeBanner: false,

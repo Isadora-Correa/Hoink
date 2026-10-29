@@ -79,6 +79,8 @@ export const transactionCreateSchema = z
     contactId: z.string().uuid().optional().nullable(),
     notes: z.string().max(1000).optional().nullable(),
     tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+    /** Chave de acesso da nota fiscal lida (evita lançar a mesma nota duas vezes). */
+    receiptKey: z.string().regex(/^\d{44}$/, 'Chave de acesso inválida').optional().nullable(),
   })
   .superRefine((v, ctx) => {
     if (v.status === 'PARTIAL') {
@@ -325,3 +327,156 @@ export const reserveSettingsSchema = z.object({
   targetMonths: z.number().int().min(1).max(24),
   accountIds: z.array(z.string().uuid()).max(50),
 });
+
+// ───────────── Cofrinhos e lista de desejos ─────────────
+export const YIELD_KINDS = ['CDI_PERCENT', 'SELIC_PERCENT', 'PREFIXED', 'MANUAL', 'NONE'] as const;
+export const LIQUIDITIES = ['DAILY', 'D_PLUS', 'AT_MATURITY'] as const;
+export const TAXATIONS = ['REGRESSIVE', 'EXEMPT', 'STOCKS'] as const;
+
+const piggyFields = {
+  kind: z.enum(['RESERVE', 'WISH', 'GOAL']),
+  name: z.string().trim().min(1, 'Dê um nome ao cofrinho').max(80),
+  institution: z.string().trim().max(80).nullable(),
+  color: z.string().max(20).nullable(),
+  icon: z.string().max(40),
+  /** Só http(s): o app abre o link do produto, então esquemas como javascript: são recusados. */
+  link: z
+    .string()
+    .trim()
+    .max(500)
+    .regex(/^https?:\/\/[^\s]+$/i, 'Use um link começando com http:// ou https://')
+    .nullable(),
+  priority: z.number().int().min(1).max(5),
+  goalCents: centsSchema.refine((v) => v > 0, 'Meta deve ser positiva').nullable(),
+  targetDate: dateSchema.nullable(),
+  yieldKind: z.enum(YIELD_KINDS),
+  /** % do índice (11500 = 115% do CDI) ou taxa anual prefixada (1250 = 12,5% a.a.), em pontos-base. */
+  yieldRateBps: z.number().int().min(0).max(100_000),
+  liquidity: z.enum(LIQUIDITIES),
+  liquidityDays: z.number().int().min(0).max(3650),
+  taxation: z.enum(TAXATIONS),
+};
+
+export const piggyCreateSchema = z.object({
+  ...piggyFields,
+  kind: piggyFields.kind.default('GOAL'),
+  institution: piggyFields.institution.optional(),
+  color: piggyFields.color.optional(),
+  icon: piggyFields.icon.default('savings'),
+  link: piggyFields.link.optional(),
+  priority: piggyFields.priority.default(3),
+  goalCents: piggyFields.goalCents.optional(),
+  targetDate: piggyFields.targetDate.optional(),
+  yieldKind: piggyFields.yieldKind.default('NONE'),
+  yieldRateBps: piggyFields.yieldRateBps.default(0),
+  liquidity: piggyFields.liquidity.default('DAILY'),
+  liquidityDays: piggyFields.liquidityDays.default(0),
+  taxation: piggyFields.taxation.default('REGRESSIVE'),
+});
+export const piggyUpdateSchema = z.object(piggyFields).partial();
+
+export const piggyMoveSchema = z.object({
+  accountId: z.string().uuid('Escolha a conta'),
+  amountCents: centsSchema.refine((v) => v > 0, 'Informe o valor').optional(),
+  date: dateSchema,
+  classification: z.enum(TRANSFER_CLASSIFICATIONS).optional(),
+});
+export const piggyDepositSchema = piggyMoveSchema.required({ amountCents: true });
+
+export const piggyYieldSchema = z.object({ date: dateSchema, balanceCents: centsSchema });
+
+export const piggyAchieveSchema = z.object({
+  accountId: z.string().uuid('Escolha a conta'),
+  date: dateSchema,
+  /** Valor da compra: se informado, lança a despesa (a única despesa — guardar não é despesa). */
+  purchaseCents: centsSchema.refine((v) => v > 0).optional(),
+  description: z.string().trim().max(160).optional(),
+  categoryId: z.string().uuid().nullable().optional(),
+});
+
+export const simulateQuerySchema = z.object({
+  monthlyCents: z.coerce.number().int().min(0).max(MAX_CENTS),
+  months: z.coerce.number().int().min(1).max(600).default(12),
+});
+
+export const manualRateSchema = z
+  .object({
+    index: z.enum(['CDI', 'SELIC', 'IPCA']),
+    date: dateSchema,
+    annualPct: z.number().min(0).max(1000).optional(),
+    monthlyPct: z.number().min(-50).max(100).optional(),
+  })
+  .refine((v) => (v.index === 'IPCA' ? v.monthlyPct !== undefined : v.annualPct !== undefined), {
+    message: 'CDI/Selic: informe a taxa anual; IPCA: a variação do mês',
+  });
+
+// ───────────── Investimentos ─────────────
+export const INVESTMENT_KINDS = ['CDB', 'LCI', 'LCA', 'TESOURO', 'FUND', 'STOCK', 'ETF', 'OTHER'] as const;
+export const INVESTMENT_INDEXERS = ['CDI_PERCENT', 'SELIC_PERCENT', 'PREFIXED', 'IPCA_PLUS', 'MARKET', 'MANUAL'] as const;
+
+const movementInput = z.object({
+  date: dateSchema,
+  amountCents: centsSchema.refine((v) => v > 0, 'Informe o valor'),
+  /** Conta de onde sai (aporte) ou para onde vai (resgate/proventos). Sem conta: posição anterior ao app. */
+  accountId: z.string().uuid().nullable().optional(),
+  quantity: z.number().positive().max(1e12).optional(),
+});
+
+export const investmentCreateSchema = z
+  .object({
+    kind: z.enum(INVESTMENT_KINDS),
+    name: z.string().trim().min(1, 'Informe o produto').max(120),
+    institution: z.string().trim().max(80).nullable().optional(),
+    ticker: z.string().trim().max(20).nullable().optional(),
+    indexer: z.enum(INVESTMENT_INDEXERS),
+    rateBps: z.number().int().min(0).max(100_000).default(0),
+    maturityDate: dateSchema.nullable().optional(),
+    liquidity: z.enum(LIQUIDITIES).default('DAILY'),
+    liquidityDays: z.number().int().min(0).max(3650).default(0),
+    costsBps: z.number().int().min(0).max(10_000).default(0),
+    taxation: z.enum(TAXATIONS).optional(),
+    notes: z.string().max(1000).nullable().optional(),
+    initial: movementInput.optional(),
+  })
+  .refine((v) => !['STOCK', 'ETF'].includes(v.kind) || v.indexer === 'MARKET', {
+    message: 'Ações e ETFs usam cotação de mercado',
+    path: ['indexer'],
+  })
+  .refine((v) => v.indexer !== 'MARKET' || !v.initial || !!v.initial.quantity, {
+    message: 'Informe a quantidade de cotas/ações',
+    path: ['initial', 'quantity'],
+  });
+
+export const investmentUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  institution: z.string().trim().max(80).nullable().optional(),
+  ticker: z.string().trim().max(20).nullable().optional(),
+  rateBps: z.number().int().min(0).max(100_000).optional(),
+  maturityDate: dateSchema.nullable().optional(),
+  liquidity: z.enum(LIQUIDITIES).optional(),
+  liquidityDays: z.number().int().min(0).max(3650).optional(),
+  costsBps: z.number().int().min(0).max(10_000).optional(),
+  taxation: z.enum(TAXATIONS).optional(),
+  notes: z.string().max(1000).nullable().optional(),
+  status: z.enum(['ACTIVE', 'CLOSED']).optional(),
+});
+
+export const investmentMoveSchema = movementInput;
+
+/** Valor atualizado do extrato (renda fixa/manual) ou preço unitário em centavos (mercado). */
+export const investmentValueSchema = z.object({
+  date: dateSchema,
+  valueCents: centsSchema.optional(),
+  unitPriceCents: z.number().positive().max(1e12).optional(),
+});
+
+// ───────────── Patrimônio ─────────────
+export const patrimonyItemSchema = z.object({
+  side: z.enum(['ASSET', 'LIABILITY']),
+  category: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(1, 'Informe o nome').max(120),
+  valueCents: centsSchema,
+  valuedAt: dateSchema,
+  notes: z.string().max(1000).nullable().optional(),
+});
+export const patrimonyItemUpdateSchema = patrimonyItemSchema.partial();

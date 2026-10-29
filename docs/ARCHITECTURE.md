@@ -11,17 +11,21 @@ flowchart LR
   subgraph API[API Node.js / Express]
     MW[Middlewares<br/>helmet · CORS · métricas · auth · ambiente · idempotência · rate limit]
     R[Rotas REST /api]
-    S[Serviços de módulo<br/>auth · contas · lançamentos · transferências · dashboard<br/>recorrências · contatos · cartões · dívidas · planejamento]
+    S[Serviços de módulo<br/>auth · contas · lançamentos · transferências · dashboard<br/>recorrências · contatos · cartões · dívidas · planejamento<br/>cofrinhos · investimentos · patrimônio · relatórios · Costelinha · notificações]
     D[Domínio puro<br/>regras de fluxo, liquidação, consolidação]
   end
   DB[(PostgreSQL 16)]
   P[Prometheus / monitoramento]
+  BCB[(Banco Central — SGS)]
+  SEF[(Sefaz — NFC-e)]
 
   W -- HTTPS + Bearer --> MW
   M -- HTTPS + Bearer --> MW
   MW --> R --> S --> D
   S -- Prisma --> DB
   P -. GET /metrics .-> API
+  S -. índices CDI/Selic/IPCA .-> BCB
+  S -. consulta da nota fiscal .-> SEF
 ```
 
 ## Componentes
@@ -63,6 +67,32 @@ flowchart LR
 - **Planejamento**: a projeção de caixa parte do saldo atual das contas de dinheiro e soma, dia a dia, os
   lançamentos em aberto e as faturas a pagar. *Confirmado* = pendentes, faturas e parcelas de dívida;
   *previsto* = ocorrências de recorrências e estimativas. Orçamentos usam as mesmas liquidações do dashboard (RN13).
+- **Cofrinhos**: como os cartões, cada cofrinho tem uma conta-razão (`PIGGY_BANK`) fora do saldo disponível.
+  Guardar e resgatar são transferências, então o dinheiro nunca está nos dois lugares. O rendimento *efetivo* é
+  lançado como receita ao confirmar o saldo do banco; o *estimado* é calculado na hora pelo índice e nunca gravado
+  (RN07). Conquistas da gamificação vêm de marcos e constância, não do número de depósitos.
+- **Investimentos**: aportes e resgates geram a perna de caixa `CONTRIBUTION`/`REDEMPTION` (não são receita nem
+  despesa). O valor vem do motor do produto (`domain/yields.ts`): renda fixa acumula o indexador dia útil a dia útil
+  a partir do último valor informado; ações/ETFs/fundos usam cotas × último preço informado, com aviso de
+  desatualizado; produtos manuais usam o último valor informado. Sem índice, não há estimativa.
+- **Índices**: CDI/Selic/IPCA vêm do SGS do Banco Central e ficam em `market_rates`. Lançar índice manualmente
+  exige `ADMIN_TOKEN`, porque vale para todos os usuários, e nunca sobrescreve o dado oficial.
+- **Patrimônio**: ativos − passivos a partir das mesmas fontes (saldos derivados, carteira, dívidas, cartões e bens
+  informados). Cada mês encerrado é gravado em `net_worth_snapshots`; o mês corrente é recalculado a cada consulta.
+- **Nota fiscal (NFC-e)**: o QR Code traz a chave de acesso (validada pelo dígito verificador) e o link da Sefaz.
+  O servidor só consulta domínios de Fazenda `*.gov.br` (e confere cada redirecionamento), com limite de tempo e de
+  tamanho, para não ser usado como proxy (SSRF). Se a página não puder ser lida (captcha, layout diferente), usa só o
+  que o QR traz. Nada é gravado na leitura: o formulário vem preenchido e o usuário confirma. A chave fica em
+  `transactions.receipt_key`, única por ambiente.
+- **Relatórios** (RN13): cada relatório é montado uma vez como tabelas (`modules/reports`) a partir dos mesmos
+  serviços das telas, e só então convertido em PDF (pdfkit, fonte Sora), XLSX (exceljs) ou CSV (`;`, vírgula
+  decimal, BOM). Textos começando com `= + - @` são escapados para evitar injeção de fórmulas em planilhas.
+- **Costelinha** (Seção 15): 1) consulta aos dados → 2) cálculos determinísticos (`domain/assistant.ts` e os
+  serviços existentes) → 3) resposta montada com fatos, fontes e datas. Dúvidas comuns ("o que é o CDI", "pagar a
+  fatura conta como despesa?") têm respostas prontas. Não há IA paga nem chamada a serviço externo; uma IA pode ser
+  plugada no futuro só para reescrever o texto, sem fazer contas.
+- **Notificações**: os mesmos insights da Costelinha viram avisos com `dedupe_key` única por usuário, para cada
+  situação ser avisada uma vez.
 - **Transferências** são duas pernas atômicas ligadas a um registro `transfers` e nunca entram em receitas/despesas
   (RN01). Entre Pessoal e Profissional exigem classificação gerencial (RN09); no Consolidado se anulam (RN10).
 - **Consolidado** pondera cada ambiente pela participação do usuário (`ownership_share_bps`), para não presumir que
@@ -105,11 +135,18 @@ erDiagram
   debt_installments |o--o| transactions : pagamento
   financial_entities ||--o{ budgets : tem
   categories ||--o{ budgets : limita
+  accounts ||--o| piggy_banks : "conta-razão"
+  users ||--o{ achievements : conquista
+  financial_entities ||--o{ investments : tem
+  investments ||--o{ investment_movements : movimenta
+  investment_movements |o--o| transactions : "perna de caixa"
+  financial_entities ||--o{ patrimony_items : "bens e dívidas"
+  financial_entities ||--o{ net_worth_snapshots : histórico
   users ||--o| user_avatars : foto
   users ||--o{ audit_logs : gera
 ```
 
-Tabelas auxiliares: `password_reset_tokens`, `idempotency_keys`, `audit_logs`, `planning_settings`.
+Tabelas auxiliares: `password_reset_tokens`, `idempotency_keys`, `audit_logs`, `planning_settings`, `market_rates`.
 
 ## Roadmap
 
@@ -117,6 +154,6 @@ Tabelas auxiliares: `password_reset_tokens`, `idempotency_keys`, `audit_logs`, `
 |---|---|
 | 1 — Fundação ✅ | Auth, ambientes, contas, categorias, lançamentos, transferências, dashboard |
 | 2 — Gestão financeira ✅ | Recorrências, clientes/fornecedores, contas a pagar/receber, cartões e faturas, dívidas, planejamento |
-| 3 — Patrimônio | Cofrinhos e metas, investimentos com motores por produto, patrimônio com snapshots |
-| 4 — Inteligência | Relatórios (PDF/XLSX/CSV), Costelinha IA (backend calcula, IA explica), notificações |
-| 5 — Produção | Endurecimento de segurança, testes de desempenho ampliados, publicação mobile |
+| 3 — Patrimônio ✅ | Cofrinhos, lista de desejos e gamificação, investimentos com motores por produto, índices do Banco Central, patrimônio com snapshots |
+| 4 — Inteligência ✅ | Relatórios (PDF/XLSX/CSV), Costelinha (respostas prontas e calculadas, sem IA paga), insights, notificações, comparador de investimentos |
+| 5 — Produção ✅ | Revisão de segurança (docs/SECURITY.md), E2E e carga cobrindo todas as fases, build Android no CI, preparação mobile (docs/MOBILE.md); falta escolher a hospedagem |

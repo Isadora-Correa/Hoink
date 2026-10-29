@@ -28,6 +28,8 @@ model User {
   passwordResetTokens PasswordResetToken[]
   memberships         EntityMember[]
   auditLogs           AuditLog[]
+  achievements        Achievement[]
+  notifications       Notification[]
 
   @@map("users")
 }
@@ -99,15 +101,18 @@ model FinancialEntity {
   updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz
   archivedAt DateTime?  @map("archived_at") @db.Timestamptz
 
-  members        EntityMember[]
-  accounts       Account[]
-  categories     Category[]
-  transactions   Transaction[]
-  recurringRules RecurringRule[]
-  contacts       Contact[]
-  budgets        Budget[]
-  debts          Debt[]
-  planning       PlanningSettings?
+  members           EntityMember[]
+  accounts          Account[]
+  categories        Category[]
+  transactions      Transaction[]
+  recurringRules    RecurringRule[]
+  contacts          Contact[]
+  budgets           Budget[]
+  debts             Debt[]
+  planning          PlanningSettings?
+  investments       Investment[]
+  patrimonyItems    PatrimonyItem[]
+  netWorthSnapshots NetWorthSnapshot[]
 
   @@map("financial_entities")
 }
@@ -140,6 +145,8 @@ enum AccountType {
   OTHER
   /// Conta-razão de um cartão de crédito (ver CreditCard). Não é dinheiro disponível.
   CREDIT_CARD
+  /// Conta-razão de um cofrinho (ver PiggyBank). É patrimônio, não saldo disponível.
+  PIGGY_BANK
 }
 
 model Account {
@@ -158,12 +165,14 @@ model Account {
   updatedAt           DateTime    @updatedAt @map("updated_at") @db.Timestamptz
   archivedAt          DateTime?   @map("archived_at") @db.Timestamptz
 
-  entity         FinancialEntity @relation(fields: [entityId], references: [id], onDelete: Restrict)
-  transactions   Transaction[]
-  recurringRules RecurringRule[]
-  card           CreditCard?     @relation("CardLedger")
-  paysCards      CreditCard[]    @relation("CardPaymentAccount")
-  debts          Debt[]
+  entity              FinancialEntity      @relation(fields: [entityId], references: [id], onDelete: Restrict)
+  transactions        Transaction[]
+  recurringRules      RecurringRule[]
+  card                CreditCard?          @relation("CardLedger")
+  piggyBank           PiggyBank?           @relation("PiggyLedger")
+  investmentMovements InvestmentMovement[]
+  paysCards           CreditCard[]         @relation("CardPaymentAccount")
+  debts               Debt[]
 
   @@index([entityId])
   @@map("accounts")
@@ -255,21 +264,24 @@ model Transaction {
   invoiceId          String?           @map("invoice_id") @db.Uuid
   purchaseId         String?           @map("purchase_id") @db.Uuid
   installmentNumber  Int?              @map("installment_number")
+  /// Chave de acesso da NFC-e/NF-e lida (44 dígitos): impede lançar a mesma nota duas vezes.
+  receiptKey         String?           @map("receipt_key")
   createdById        String            @map("created_by") @db.Uuid
   createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt          DateTime?         @map("deleted_at") @db.Timestamptz
 
-  entity          FinancialEntity  @relation(fields: [entityId], references: [id], onDelete: Restrict)
-  account         Account          @relation(fields: [accountId], references: [id], onDelete: Restrict)
-  category        Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  transfer        Transfer?        @relation(fields: [transferId], references: [id], onDelete: Restrict)
-  recurringRule   RecurringRule?   @relation(fields: [recurringRuleId], references: [id], onDelete: Restrict)
-  contact         Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  invoice         CardInvoice?     @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
-  purchase        CardPurchase?    @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
-  settlements     Settlement[]
-  debtInstallment DebtInstallment?
+  entity             FinancialEntity     @relation(fields: [entityId], references: [id], onDelete: Restrict)
+  account            Account             @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  category           Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transfer           Transfer?           @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  recurringRule      RecurringRule?      @relation(fields: [recurringRuleId], references: [id], onDelete: Restrict)
+  contact            Contact?            @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  invoice            CardInvoice?        @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  purchase           CardPurchase?       @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  settlements        Settlement[]
+  debtInstallment    DebtInstallment?
+  investmentMovement InvestmentMovement?
 
   @@index([invoiceId])
   @@index([purchaseId])
@@ -583,6 +595,266 @@ model PlanningSettings {
   entity FinancialEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
 
   @@map("planning_settings")
+}
+
+// ───────────────────────────── Índices de mercado ─────────────────────────────
+
+enum MarketIndex {
+  CDI
+  SELIC
+  IPCA
+}
+
+enum MarketRateSource {
+  BCB
+  MANUAL
+}
+
+/// Série histórica de índices. CDI e Selic: taxa diária (% ao dia útil); IPCA: variação mensal (%).
+/// Vêm do SGS do Banco Central ou são informados manualmente — nunca inventados.
+model MarketRate {
+  id        String           @id @default(uuid()) @db.Uuid
+  index     MarketIndex
+  date      DateTime         @db.Date
+  ratePct   Decimal          @map("rate_pct") @db.Decimal(14, 8)
+  source    MarketRateSource
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  @@unique([index, date])
+  @@map("market_rates")
+}
+
+// ───────────────────────────── Cofrinhos ─────────────────────────────
+
+/// Como o dinheiro rende: % do CDI, % da Selic, prefixado (% a.a.), valor informado manualmente ou não rende.
+enum YieldKind {
+  CDI_PERCENT
+  SELIC_PERCENT
+  PREFIXED
+  MANUAL
+  NONE
+}
+
+/// Reserva (emergência, viagem), desejo (PS5, drone, carro) ou meta genérica.
+enum PiggyKind {
+  RESERVE
+  WISH
+  GOAL
+}
+
+enum Liquidity {
+  DAILY
+  D_PLUS
+  AT_MATURITY
+}
+
+/// IR regressivo (22,5% → 15%) com IOF nos primeiros 30 dias; isento (LCI/LCA, poupança); ou 15% sobre ganho (ações).
+enum Taxation {
+  REGRESSIVE
+  EXEMPT
+  STOCKS
+}
+
+/// Cofrinho: conta-razão própria (Account PIGGY_BANK, mesmo id). Guardar e retirar são TRANSFERÊNCIAS
+/// de/para uma conta, então o dinheiro nunca existe nos dois lugares. Rendimento efetivo é lançado como
+/// receita no cofrinho ao confirmar o saldo do banco; o estimado é calculado e nunca gravado (RN07).
+model PiggyBank {
+  id            String    @id @db.Uuid
+  entityId      String    @map("entity_id") @db.Uuid
+  kind          PiggyKind @default(GOAL)
+  /// Link do produto desejado (lista de desejos).
+  link          String?
+  /// 1 = mais importante.
+  priority      Int       @default(3)
+  /// Desejo realizado: o dinheiro saiu do cofrinho para a compra.
+  achievedAt    DateTime? @map("achieved_at") @db.Date
+  goalCents     BigInt?   @map("goal_cents")
+  targetDate    DateTime? @map("target_date") @db.Date
+  yieldKind     YieldKind @default(NONE) @map("yield_kind")
+  /// % do índice (11500 = 115% do CDI) ou taxa prefixada anual (1250 = 12,5% a.a.), em pontos-base.
+  yieldRateBps  Int       @default(0) @map("yield_rate_bps")
+  liquidity     Liquidity @default(DAILY)
+  liquidityDays Int       @default(0) @map("liquidity_days")
+  taxation      Taxation  @default(REGRESSIVE)
+  icon          String    @default("savings")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  account Account @relation("PiggyLedger", fields: [id], references: [id], onDelete: Restrict)
+
+  @@index([entityId])
+  @@map("piggy_banks")
+}
+
+/// Conquista da gamificação (desbloqueada uma única vez por usuário).
+model Achievement {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  code       String
+  /// Cofrinho que originou a conquista, quando houver.
+  piggyId    String?  @map("piggy_id") @db.Uuid
+  unlockedAt DateTime @default(now()) @map("unlocked_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, code, piggyId])
+  @@map("achievements")
+}
+
+/// Notificação no app (contas vencendo, orçamento, caixa negativo…). `dedupeKey` evita repetir o mesmo aviso.
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  entityId  String?   @map("entity_id") @db.Uuid
+  severity  String
+  title     String
+  body      String
+  link      String?
+  dedupeKey String    @map("dedupe_key")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  readAt    DateTime? @map("read_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+}
+
+// ───────────────────────────── Investimentos ─────────────────────────────
+
+enum InvestmentKind {
+  CDB
+  LCI
+  LCA
+  TESOURO
+  FUND
+  STOCK
+  ETF
+  OTHER
+}
+
+/// Motor de cálculo do investimento: renda fixa por indexador ou valor de mercado (cotas × preço informado).
+enum InvestmentIndexer {
+  CDI_PERCENT
+  SELIC_PERCENT
+  PREFIXED
+  IPCA_PLUS
+  MARKET
+  MANUAL
+}
+
+enum InvestmentStatus {
+  ACTIVE
+  CLOSED
+}
+
+model Investment {
+  id            String            @id @default(uuid()) @db.Uuid
+  entityId      String            @map("entity_id") @db.Uuid
+  kind          InvestmentKind
+  name          String
+  institution   String?
+  ticker        String?
+  indexer       InvestmentIndexer
+  /// % do índice (CDI/Selic), taxa anual prefixada ou taxa real anual (IPCA+), em pontos-base.
+  rateBps       Int               @default(0) @map("rate_bps")
+  maturityDate  DateTime?         @map("maturity_date") @db.Date
+  liquidity     Liquidity         @default(DAILY)
+  liquidityDays Int               @default(0) @map("liquidity_days")
+  /// Custos anuais (taxa de administração/custódia), em pontos-base.
+  costsBps      Int               @default(0) @map("costs_bps")
+  taxation      Taxation
+  status        InvestmentStatus  @default(ACTIVE)
+  notes         String?
+  createdById   String            @map("created_by") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  entity    FinancialEntity      @relation(fields: [entityId], references: [id], onDelete: Restrict)
+  movements InvestmentMovement[]
+
+  @@index([entityId, status])
+  @@map("investments")
+}
+
+enum InvestmentMovementKind {
+  CONTRIBUTION
+  REDEMPTION
+  /// Valor/cotação informado (extrato da corretora). Não movimenta caixa.
+  VALUE_UPDATE
+  /// Dividendos, JCP, cupons: entram no caixa como receita.
+  INCOME
+}
+
+/// Movimentação do investimento. Aportes e resgates têm a perna de caixa na conta (lançamento
+/// CONTRIBUTION/REDEMPTION, que não é receita nem despesa — RN01/RN03).
+model InvestmentMovement {
+  id            String                 @id @default(uuid()) @db.Uuid
+  investmentId  String                 @map("investment_id") @db.Uuid
+  kind          InvestmentMovementKind
+  date          DateTime               @db.Date
+  amountCents   BigInt                 @map("amount_cents")
+  /// Cotas/ações (até 8 casas). Preço unitário em centavos (pode ter frações).
+  quantity      Decimal?               @db.Decimal(20, 8)
+  unitPrice     Decimal?               @map("unit_price") @db.Decimal(20, 8)
+  accountId     String?                @map("account_id") @db.Uuid
+  transactionId String?                @unique @map("transaction_id") @db.Uuid
+  createdById   String                 @map("created_by") @db.Uuid
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt     DateTime?              @map("deleted_at") @db.Timestamptz
+
+  investment  Investment   @relation(fields: [investmentId], references: [id], onDelete: Restrict)
+  account     Account?     @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+
+  @@index([investmentId, date])
+  @@map("investment_movements")
+}
+
+// ───────────────────────────── Patrimônio ─────────────────────────────
+
+enum PatrimonySide {
+  ASSET
+  LIABILITY
+}
+
+/// Bens (imóvel, veículo) e obrigações que não estão em outros módulos. Valor informado com data.
+model PatrimonyItem {
+  id         String        @id @default(uuid()) @db.Uuid
+  entityId   String        @map("entity_id") @db.Uuid
+  side       PatrimonySide
+  category   String
+  name       String
+  valueCents BigInt        @map("value_cents")
+  valuedAt   DateTime      @map("valued_at") @db.Date
+  notes      String?
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt  DateTime?     @map("deleted_at") @db.Timestamptz
+
+  entity FinancialEntity @relation(fields: [entityId], references: [id], onDelete: Restrict)
+
+  @@index([entityId])
+  @@map("patrimony_items")
+}
+
+/// Fotografia mensal do patrimônio (fim do mês; o mês corrente é atualizado até virar).
+model NetWorthSnapshot {
+  id               String   @id @default(uuid()) @db.Uuid
+  entityId         String   @map("entity_id") @db.Uuid
+  /// Primeiro dia do mês.
+  month            DateTime @db.Date
+  assetsCents      BigInt   @map("assets_cents")
+  liabilitiesCents BigInt   @map("liabilities_cents")
+  breakdown        Json
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  entity FinancialEntity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([entityId, month])
+  @@map("net_worth_snapshots")
 }
 
 /// Agrupa as duas pernas (saída e entrada) de uma transferência.

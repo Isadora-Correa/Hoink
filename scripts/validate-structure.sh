@@ -6,7 +6,7 @@ required=(
   README.md .env.example docker-compose.yml .github/workflows/ci.yml .github/workflows/cd.yml
   apps/api/Dockerfile apps/api/package.json apps/api/prisma/schema.prisma
   apps/app/Dockerfile apps/app/pubspec.yaml apps/app/nginx.conf
-  e2e/playwright.config.ts perf/load.js docs/ARCHITECTURE.md docs/DEPLOY.md CONTRIBUTING.md
+  e2e/playwright.config.ts perf/load.js docs/ARCHITECTURE.md docs/DEPLOY.md docs/SECURITY.md docs/MOBILE.md CONTRIBUTING.md
 )
 for f in "${required[@]}"; do
   if [[ ! -e "$f" ]]; then echo "::error::Arquivo obrigatório ausente: $f"; fail=1; fi

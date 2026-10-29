@@ -104,6 +104,35 @@ jobs:
           name: app-coverage
           path: apps/app/coverage
 
+  android:
+    name: App Android — build do APK
+    needs: [app]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build do APK (API pública configurada na variável API_PUBLIC_URL)
+        run: >-
+          flutter build apk --release
+          --dart-define=API_BASE_URL=${{ vars.API_PUBLIC_URL || 'http://10.0.2.2:3333' }}
+          --dart-define=GIT_SHA=${{ github.sha }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hoink-android-apk
+          path: apps/app/build/app/outputs/flutter-apk/app-release.apk
+
   e2e:
     name: Testes E2E (Playwright)
     needs: [api, app]
@@ -121,6 +150,9 @@ jobs:
     env:
       DATABASE_URL: postgresql://hoink:hoink@localhost:5432/hoink
       AUTH_RATE_LIMIT: 10000
+      # Sem chamadas a serviços externos (Banco Central, Sefaz): resultado determinístico.
+      MARKET_DATA_SYNC: "false"
+      RECEIPT_LOOKUP: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -173,6 +205,8 @@ jobs:
     env:
       DATABASE_URL: postgresql://hoink:hoink@localhost:5432/hoink
       LOG_LEVEL: warn
+      MARKET_DATA_SYNC: "false"
+      RECEIPT_LOOKUP: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

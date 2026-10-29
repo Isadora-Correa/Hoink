@@ -1,9 +1,13 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../app/theme.dart';
 import '../../core/api_client.dart';
 import '../../core/money.dart';
+import '../../state/providers.dart';
 
 /// Cartão nível 1 (superfície branca sobre o fundo).
 class HoinkCard extends StatelessWidget {
@@ -80,9 +84,10 @@ class MoneyText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hidden = this.hidden || Privacy.hidden;
     final c = color ?? style.color ?? HoinkColors.onSurface;
     final base = style.copyWith(color: c, fontFeatures: const [FontFeature.tabularFigures()]);
-    final sign = cents < 0 ? '-' : (signed && cents > 0 ? '+' : '');
+    final sign = hidden ? '' : (cents < 0 ? '-' : (signed && cents > 0 ? '+' : ''));
     return Text.rich(
       TextSpan(
         children: [
@@ -203,25 +208,35 @@ class SectionTitle extends StatelessWidget {
   final Widget? trailing;
 
   @override
-  Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.end,
-    children: [
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (eyebrow != null)
-              Text(
-                eyebrow!.toUpperCase(),
-                style: HoinkText.labelSm.copyWith(color: HoinkColors.onSurfaceVariant, letterSpacing: 1),
-              ),
-            Text(title, style: HoinkText.headlineMd.copyWith(color: HoinkColors.primary)),
-          ],
-        ),
-      ),
-      ?trailing,
-    ],
-  );
+  Widget build(BuildContext context) {
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (eyebrow != null)
+          Text(
+            eyebrow!.toUpperCase(),
+            style: HoinkText.labelSm.copyWith(color: HoinkColors.onSurfaceVariant, letterSpacing: 1),
+          ),
+        Text(title, style: HoinkText.headlineMd.copyWith(color: HoinkColors.primary)),
+      ],
+    );
+    if (trailing == null) return heading;
+    // Em telas estreitas o controle vai para baixo do título, para o título não ser espremido.
+    return LayoutBuilder(
+      builder: (context, c) => c.maxWidth < 640
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [heading, const SizedBox(height: 10), trailing!],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(child: heading),
+                trailing!,
+              ],
+            ),
+    );
+  }
 }
 
 class ProgressRail extends StatelessWidget {
@@ -317,4 +332,40 @@ void showError(BuildContext context, Object e) {
 
 void showSuccess(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+}
+
+/// Esconde gráficos no modo privacidade: a altura das barras e linhas também revela valores.
+class PrivacyBlur extends ConsumerWidget {
+  const PrivacyBlur({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(hideValuesProvider)) return child;
+    return Semantics(
+      label: 'Gráfico oculto',
+      excludeSemantics: true,
+      child: IgnorePointer(
+        child: ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), child: child),
+      ),
+    );
+  }
+}
+
+/// Botão do olhinho: mostra/esconde todos os valores do app.
+class PrivacyToggle extends ConsumerWidget {
+  const PrivacyToggle({super.key, this.color = HoinkColors.onSurfaceVariant, this.size = 20});
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hidden = ref.watch(hideValuesProvider);
+    return IconButton(
+      key: const Key('privacy-toggle'),
+      tooltip: hidden ? 'Mostrar valores' : 'Ocultar valores',
+      onPressed: () => ref.read(hideValuesProvider.notifier).toggle(),
+      icon: Icon(hidden ? Symbols.visibility_off : Symbols.visibility, size: size, color: color),
+    );
+  }
 }

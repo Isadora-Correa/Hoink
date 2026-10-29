@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:hoink/core/money.dart';
 import 'package:hoink/core/token_storage.dart';
 import 'package:hoink/data/repository.dart';
 import 'package:hoink/main.dart';
@@ -34,6 +35,7 @@ Future<void> pumpApp(
 
 void main() {
   setUpAll(() => initializeDateFormatting('pt_BR'));
+  tearDown(() => Privacy.hidden = false);
 
   testWidgets('logo é desenhada a partir do vetor oficial', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: Center(child: HoinkLogo(height: 48))));
@@ -121,6 +123,8 @@ void main() {
 
   testWidgets('configurações oferecem foto de perfil e conta profissional', (tester) async {
     await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
+    await tester.ensureVisible(find.text('Configurações'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Configurações'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('pick-avatar')), findsOneWidget);
@@ -139,6 +143,10 @@ void main() {
     await tester.tap(find.byType(DropdownButtonFormField<String>).first);
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Nubank Ultravioleta').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('more-options')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('more-options')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('recurring-toggle')));
     await tester.pumpAndSettle();
@@ -160,7 +168,7 @@ void main() {
 
   testWidgets('tela de recorrências mostra estado vazio com ação de criar', (tester) async {
     await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
-    await tester.tap(find.text('Recorrências'));
+    await tester.tap(find.text('Contas fixas'));
     await tester.pumpAndSettle();
     expect(find.text('Nenhuma recorrência'), findsWidgets);
     expect(find.byKey(const Key('new-recurring')), findsOneWidget);
@@ -169,6 +177,8 @@ void main() {
   testWidgets('cadastra cliente com CPF/CNPJ validado no app', (tester) async {
     final repo = FakeRepository();
     await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
+    await tester.ensureVisible(find.text('Clientes e Fornecedores'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Clientes e Fornecedores'));
     await tester.pumpAndSettle();
     expect(find.text('Nenhum cliente'), findsWidgets);
@@ -266,5 +276,150 @@ void main() {
     await tester.tap(find.byKey(const Key('save-budget')));
     await tester.pumpAndSettle();
     expect(repo.budgetsSaved.single, ('c1', 80000, 8000));
+  });
+
+  testWidgets('olhinho esconde todos os valores, inclusive gastos nas listas', (tester) async {
+    await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
+    await tester.tap(find.text('Pagar e Receber'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('350,00'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('privacy-toggle')).first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('350,00'), findsNothing);
+    expect(find.textContaining('••••••'), findsWidgets);
+
+    await tester.tap(find.text('Início'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('12.480'), findsNothing);
+    expect(find.textContaining('7.800'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('privacy-toggle')).first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('12.480'), findsWidgets);
+  });
+
+  testWidgets('cofrinhos: lista de desejos, gamificação e comemoração ao guardar', (tester) async {
+    final repo = FakeRepository();
+    await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
+    await tester.tap(find.text('Cofrinhos'));
+    await tester.pumpAndSettle();
+    expect(find.text('PS5 para o namorado'), findsOneWidget);
+    expect(find.text('Porquinho Poupador'), findsOneWidget);
+    expect(find.textContaining('3 semanas seguidas'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('deposit-pg1')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('piggy-amount')), '300');
+    await tester.tap(find.byKey(const Key('confirm-piggy-move')));
+    await tester.pumpAndSettle();
+    expect(repo.piggyActions.single.$1, 'deposit');
+    expect(repo.piggyActions.single.$2, containsPair('amountCents', 30000));
+    expect(find.text('Conquista desbloqueada!'), findsOneWidget);
+    expect(find.text('Metade lá!'), findsOneWidget);
+  });
+
+  testWidgets('patrimônio: ativos menos passivos e bens', (tester) async {
+    await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
+    await tester.tap(find.text('Patrimônio'));
+    await tester.pumpAndSettle();
+    expect(find.text('PATRIMÔNIO LÍQUIDO'), findsOneWidget);
+    expect(find.textContaining('65.000,00'), findsWidgets);
+    expect(find.text('Onix'), findsOneWidget);
+  });
+
+  testWidgets('lê a nota fiscal e preenche o gasto (loja, valor, data, categoria e itens)', (tester) async {
+    final repo = FakeRepository();
+    await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
+    await tester.tap(find.text('Novo Lançamento'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('read-receipt')));
+    await tester.tap(find.byKey(const Key('read-receipt')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('receipt-code')), 'https://www.nfce.fazenda.sp.gov.br/qrcode?p=x');
+    await tester.tap(find.byKey(const Key('read-receipt-confirm')));
+    await tester.pumpAndSettle();
+    expect(find.text('SUPERMERCADO BOM PREÇO'), findsOneWidget);
+    expect(find.text('2 itens'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('use-receipt')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Nubank Ultravioleta').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('save-transaction')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('save-transaction')));
+    await tester.pumpAndSettle();
+    final body = repo.created.single;
+    expect(body, containsPair('amountCents', 3500));
+    expect(body, containsPair('description', 'SUPERMERCADO BOM PREÇO'));
+    expect(body, containsPair('categoryId', 'c1'));
+    expect(body, containsPair('competenceDate', '2025-06-15'));
+    expect(body, containsPair('receiptKey', '35261012345678000195650010000123451123456780'));
+    expect(body['notes'] as String, contains('BANANA PRATA KG'));
+    expect(body['tags'], contains('nota-fiscal'));
+  });
+
+  testWidgets('relatórios: escolhe tipo e período e mostra a prévia com os números da API', (tester) async {
+    final repo = FakeRepository();
+    await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
+    await tester.tap(find.text('Relatórios'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Trimestre'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('preview-report')));
+    await tester.pumpAndSettle();
+    expect(repo.reportQueries.single.$1, 'receitas-despesas');
+    expect(repo.reportQueries.single.$2, containsPair('period', 'quarter'));
+    expect(find.text('R\$ 7.800,00'), findsOneWidget);
+    expect(find.text('Resultado'), findsOneWidget);
+    expect(find.byKey(const Key('download-pdf')), findsOneWidget);
+  });
+
+  testWidgets('Costelinha responde com os fatos calculados e as fontes', (tester) async {
+    final repo = FakeRepository();
+    await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
+    await tester.ensureVisible(find.text('Costelinha'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Costelinha'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Quanto posso investir este mês?'));
+    await tester.pumpAndSettle();
+    expect(repo.asked.single, 'Quanto posso investir este mês?');
+    expect(find.text('Calculado pela hoink.'), findsOneWidget);
+    expect(find.textContaining('Fontes: CDI'), findsOneWidget);
+    expect(find.text('Quais despesas aumentaram?'), findsOneWidget);
+  });
+
+  testWidgets('sino mostra notificações não lidas', (tester) async {
+    await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
+    expect(find.text('1'), findsWidgets);
+    await tester.tap(find.byKey(const Key('notifications')));
+    await tester.pumpAndSettle();
+    expect(find.text('Luz vence amanhã'), findsOneWidget);
+  });
+
+  testWidgets('extrato aparece no menu e mostra as movimentações da conta escolhida', (tester) async {
+    await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
+    await tester.tap(find.text('Extrato'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nubank Ultravioleta'), findsWidgets);
+    expect(find.text('Supermercado Pão de Açúcar'), findsOneWidget);
+  });
+
+  testWidgets('guia de testes lista as funcionalidades e marca o que foi testado', (tester) async {
+    await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
+    // O guia fica no menu do usuário (avatar), não no menu lateral.
+    await tester.tap(find.byTooltip('Conta'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Guia de testes'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pessoal, Pro e Total'), findsOneWidget);
+    expect(find.textContaining('0 de '), findsOneWidget);
+    await tester.tap(find.byKey(const Key('guide-ambientes')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1 de '), findsOneWidget);
   });
 }

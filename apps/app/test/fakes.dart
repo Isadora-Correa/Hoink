@@ -95,6 +95,9 @@ class FakeRepository extends HoinkRepository {
   final simulated = <Map<String, Object?>>[];
   final budgetsSaved = <(String, int, int)>[];
   List<CreditCard> cardList = [];
+  final piggyActions = <(String, Map<String, Object?>)>[];
+  final asked = <String>[];
+  final reportQueries = <(String, Map<String, Object?>)>[];
   String? loginError;
   bool withBusiness = true;
 
@@ -291,6 +294,201 @@ class FakeRepository extends HoinkRepository {
       {'id': 'a2', 'name': 'Reserva Nubank', 'balanceCents': 1450000},
     ],
   });
+
+  @override
+  Future<List<PiggyBank>> piggyBanks(String entityId) async => [PiggyBank(piggyJson())];
+  @override
+  Future<PiggyResult> piggyAction(String entityId, String id, String action, Map<String, Object?> body) async {
+    piggyActions.add((action, body));
+    return PiggyResult({
+      'piggy': piggyJson(balance: 210000),
+      'unlocked': [
+        {
+          'code': 'GOAL_50',
+          'title': 'Metade lá!',
+          'description': 'Chegou à metade da meta',
+          'icon': 'flag',
+          'points': 50,
+          'piggyName': 'PS5',
+        },
+      ],
+    });
+  }
+
+  @override
+  Future<GamificationProfile> gamification() async => GamificationProfile({
+    'level': 2,
+    'name': 'Porquinho Poupador',
+    'points': 150,
+    'nextLevelName': 'Porco Planejador',
+    'pointsToNext': 150,
+    'progressBps': 2500,
+    'streak': {'current': 3, 'best': 5, 'depositedThisWeek': false},
+    'unlocked': [
+      {'code': 'FIRST_DEPOSIT', 'title': 'Primeira moedinha', 'description': 'x', 'icon': 'paid', 'points': 20},
+    ],
+    'locked': [
+      {'code': 'SAVED_10K', 'title': 'Porquinho gordo', 'description': 'y', 'icon': 'savings', 'points': 150},
+    ],
+  });
+
+  @override
+  Future<Patrimony> patrimony({String? entityId}) async => Patrimony({
+    'assets': {
+      'cashCents': 2000000,
+      'piggyBanksCents': 500000,
+      'investmentsCents': 1000000,
+      'otherCents': 7200000,
+      'totalCents': 10700000,
+    },
+    'liabilities': {'debtsCents': 3800000, 'cardsCents': 400000, 'otherCents': 0, 'totalCents': 4200000},
+    'netWorthCents': 6500000,
+    'items': [
+      {
+        'id': 'i1',
+        'side': 'ASSET',
+        'category': 'Veículo',
+        'name': 'Onix',
+        'valueCents': 7200000,
+        'valuedAt': '2025-01-01',
+      },
+    ],
+    'history': [
+      {'month': '2025-05', 'assetsCents': 10000000, 'liabilitiesCents': 4300000, 'netWorthCents': 5700000},
+      {'month': '2025-06', 'assetsCents': 10700000, 'liabilitiesCents': 4200000, 'netWorthCents': 6500000},
+    ],
+  });
+
+  @override
+  Future<ReceiptPreview> receiptPreview(String entityId, String qr) async => ReceiptPreview({
+    'accessKey': '35261012345678000195650010000123451123456780',
+    'issuerName': 'SUPERMERCADO BOM PREÇO',
+    'cnpj': '12345678000195',
+    'issuedAt': '2025-06-15',
+    'issuedMonth': '2025-06',
+    'totalCents': 3500,
+    'discountCents': 153,
+    'paymentMethod': 'Cartão de Débito',
+    'items': [
+      {'description': 'ARROZ TIPO 1 5KG', 'quantity': 1, 'unit': 'UN', 'totalCents': 2790},
+      {'description': 'BANANA PRATA KG', 'quantity': 1.235, 'unit': 'KG', 'totalCents': 863},
+    ],
+    'suggestedCategoryId': 'c1',
+    'suggestedCategoryName': 'Mercado',
+    'source': 'SEFAZ',
+    'alreadyRegistered': false,
+  });
+
+  @override
+  Future<({int unread, List<AppNotification> items})> notifications() async => (
+    unread: 1,
+    items: [
+      AppNotification({
+        'id': 'n1',
+        'severity': 'warning',
+        'title': 'Luz vence amanhã',
+        'body': 'Valor: R\$ 250,00.',
+        'link': '/contas-a-pagar?tipo=pagar',
+        'createdAt': '2025-06-20T10:00:00Z',
+        'read': false,
+      }),
+    ],
+  );
+  @override
+  Future<void> markNotificationRead(String id) async {}
+
+  @override
+  Future<List<({String type, String title})>> reportTypes() async => [
+    (type: 'receitas-despesas', title: 'Receitas e despesas'),
+    (type: 'investimentos', title: 'Investimentos'),
+  ];
+  @override
+  Future<Report> report(String? entityId, String type, Map<String, Object?> query) async {
+    reportQueries.add((type, query));
+    return Report({
+      'type': type,
+      'title': 'Receitas e despesas',
+      'scope': 'Pessoal',
+      'period': {'from': '2025-06-01', 'to': '2025-06-30', 'label': 'Junho de 2025'},
+      'sections': [
+        {
+          'title': 'Resumo',
+          'columns': [
+            {'key': 'item', 'label': 'Item', 'type': 'text'},
+            {'key': 'valor', 'label': 'Valor (R\$)', 'type': 'money'},
+          ],
+          'rows': [
+            {'item': 'Receitas', 'valor': 780000},
+            {'item': 'Despesas', 'valor': 490000},
+          ],
+          'totals': {'item': 'Resultado', 'valor': 290000},
+        },
+      ],
+      'notes': ['Gerado pela hoink.'],
+    });
+  }
+
+  @override
+  Future<List<String>> assistantSuggestions() async => [
+    'Quanto posso investir este mês?',
+    'Quais contas vencem esta semana?',
+  ];
+  @override
+  Future<AssistantAnswer> ask(String? entityId, String question) async {
+    asked.add(question);
+    return AssistantAnswer({
+      'intent': 'INVEST_CAPACITY',
+      'question': question,
+      'title': 'Quanto posso investir',
+      'text': 'Você pode separar até R\$ 2.000,00 sem que o saldo fique negativo nos próximos 30 dias.',
+      'facts': [
+        {'label': 'Pode investir com segurança', 'value': 200000, 'type': 'money'},
+        {'label': 'CDI atual (a.a.)', 'value': 1365, 'type': 'percent'},
+      ],
+      'sources': [
+        {'label': 'CDI — Banco Central (SGS)', 'date': '2025-06-19'},
+      ],
+      'suggestions': ['Quais despesas aumentaram?'],
+    });
+  }
+
+  @override
+  Future<Statement> statement(String entityId, String id, String from, String to) async => Statement.fromJson({
+    'account': fakeDashboard().accounts.first.toJsonForTests(),
+    'from': from,
+    'to': to,
+    'openingBalanceCents': 1000000,
+    'closingBalanceCents': 965000,
+    'entries': [
+      {
+        'id': 's1',
+        'transactionId': 't1',
+        'date': '2025-06-09',
+        'description': 'Supermercado Pão de Açúcar',
+        'type': 'EXPENSE',
+        'direction': 'OUT',
+        'amountCents': 35000,
+        'partial': false,
+        'category': {'id': 'c1', 'name': 'Mercado', 'icon': 'shopping_cart'},
+        'transferId': null,
+        'balanceAfterCents': 965000,
+      },
+    ],
+  });
+}
+
+extension on Account {
+  Json toJsonForTests() => {
+    'id': id,
+    'entityId': entityId,
+    'name': name,
+    'institution': institution,
+    'type': type,
+    'initialBalanceCents': initialBalanceCents,
+    'referenceDate': referenceDate,
+    'balanceCents': balanceCents,
+    'archived': archived,
+  };
 }
 
 Json invoiceJson(String month) => {
@@ -322,3 +520,32 @@ CreditCard fakeCard() => CreditCard.fromJson({
   'currentInvoice': invoiceJson('2025-07'),
   'pendingInvoices': [invoiceJson('2025-06')],
 });
+
+Json piggyJson({int balance = 180000}) => {
+  'id': 'pg1',
+  'entityId': 'e1',
+  'kind': 'WISH',
+  'name': 'PS5 para o namorado',
+  'institution': null,
+  'icon': 'sports_esports',
+  'link': 'https://loja.exemplo/ps5',
+  'priority': 1,
+  'goalCents': 420000,
+  'targetDate': null,
+  'achievedAt': null,
+  'yieldKind': 'NONE',
+  'yieldRateBps': 0,
+  'yieldLabel': 'Sem rendimento',
+  'liquidity': 'DAILY',
+  'balanceCents': balance,
+  'principalCents': balance,
+  'effectiveYieldCents': 0,
+  'estimatedYieldCents': 0,
+  'grossEstimatedCents': balance,
+  'taxEstimatedCents': 0,
+  'netEstimatedCents': balance,
+  'estimate': null,
+  'progressBps': balance * 10000 ~/ 420000,
+  'missingCents': 420000 - balance,
+  'monthlyNeededCents': null,
+};

@@ -28,9 +28,17 @@ conta transferências internas como receita ou despesa.
 | Cartões de crédito (Fase 2) | Limite usado e disponível, compras à vista e parceladas (até 48x), faturas por mês com fechamento e vencimento, pagamento total ou parcial da fatura **sem duplicar a despesa** (RN08) |
 | Dívidas (Fase 2) | Financiamentos e empréstimos PRICE ou SAC com principal, juros e encargos separados; parcelas em contas a pagar; multa e mora no pagamento; amortização extraordinária (reduz prazo ou parcela); simulação e registro de quitação antecipada |
 | Planejamento (Fase 2) | Fluxo de caixa projetado para 30/60/90 dias separando **confirmado** de **previsto**, alerta de saldo negativo, orçamentos por categoria com alertas e reserva de emergência |
-
-Cofrinhos, metas, investimentos, Costelinha IA e relatórios aparecem no app como **"Em construção"** (Fases 3–4),
-sem dados simulados.
+| Cofrinhos e lista de desejos (Fase 3) | Reservas, metas e desejos (PS5, drone, carro…) com preço, link e prioridade; guardar e resgatar como transferência do saldo; rendimento por % do CDI/Selic ou prefixado separando principal, rendimento confirmado, estimado, saldo bruto e líquido estimado (IR/IOF); simulação até a meta; "Comprei!" lança a compra uma única vez |
+| Gamificação (Fase 3) | Níveis de porquinho, pontos por marcos (25/50/75/100% da meta, desejo realizado, R$ 1 mil e 10 mil guardados), sequência semanal de depósitos e comemoração ao desbloquear conquistas |
+| Investimentos (Fase 3) | CDB, LCI, LCA, Tesouro, fundos, ações, ETFs e outros, com motor por produto (% CDI/Selic, prefixado, IPCA+, cotas × preço, valor manual); aportes, resgates, proventos, custos, vencimentos, IR regressivo/isenção estimados, evolução e comparação |
+| Índices de mercado (Fase 3) | CDI, Selic e IPCA do Banco Central (SGS, API pública), sincronizados a cada 12 h; dados ausentes ficam sinalizados como desatualizados — nada é inventado |
+| Patrimônio (Fase 3) | Ativos (contas, cofrinhos, investimentos, bens) − passivos (dívidas, cartões, outras obrigações), sem dupla contagem, com fotografia mensal e histórico |
+| Nota fiscal | Lê o QR Code do cupom (NFC-e) pela câmera ou pelo link/chave colados, consulta a nota no site da Sefaz (somente domínios gov.br) e preenche loja, valor, data, categoria sugerida e itens; a mesma nota não é lançada duas vezes |
+| Privacidade | Olhinho no topo de todas as telas esconde todos os valores, inclusive gastos e gráficos |
+| Relatórios (Fase 4) | 11 relatórios (receitas e despesas, fluxo de caixa, clientes, a receber, a pagar, dívidas, cofrinhos, investimentos, rendimentos, patrimônio, orçamentos) mensais, trimestrais, anuais ou personalizados, filtráveis por ambiente e categoria, em **PDF, XLSX e CSV** com os mesmos números da tela |
+| Costelinha (Fase 4) | Responde "Quanto posso investir?", "Quais despesas aumentaram?", "Qual cliente mais me pagou?", "Quais contas vencem esta semana?" com números calculados a partir dos seus dados (com fontes e datas), e dúvidas comuns ("o que é o CDI?") com respostas prontas — gratuita, sem IA paga |
+| Notificações e insights (Fase 4) | Contas e faturas vencendo, contas atrasadas, orçamento estourado e saldo negativo previsto, sem avisos repetidos |
+| Comparador de investimentos (Fase 4) | CDB × LCI/LCA × Tesouro prefixado/IPCA+ para um valor e prazo, líquido de IR, com as taxas atuais do Banco Central (estimativa) |
 
 ## Arquitetura
 
@@ -84,10 +92,10 @@ flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:3333
 
 | Tipo | Ferramenta | Comando | Quantidade |
 |---|---|---|---|
-| Unitários (regras de domínio, recorrências, faturas, amortização, projeção, dinheiro) | Vitest | `pnpm --filter @hoink/api test` | 38 |
-| Integração (API + PostgreSQL real) | Vitest + Supertest | `pnpm --filter @hoink/api test` | 65 |
-| Unitários e de widget (app) | flutter_test | `cd apps/app && flutter test` | 37 |
-| E2E (desktop e mobile) | Playwright | `pnpm test:e2e` | 12 |
+| Unitários (regras de domínio, recorrências, faturas, amortização, rendimentos, NFC-e, Costelinha, dinheiro) | Vitest | `pnpm --filter @hoink/api test` | 61 |
+| Integração (API + PostgreSQL real) | Vitest + Supertest | `pnpm --filter @hoink/api test` | 91 |
+| Unitários e de widget (app) | flutter_test | `cd apps/app && flutter test` | 49 |
+| E2E (desktop e mobile) | Playwright | `pnpm test:e2e` | 20 |
 | Performance | k6 | `k6 run perf/load.js` | p95 < 500 ms, erros < 1% |
 
 Cobertura da API: ~95% das linhas (mínimo exigido no CI: 75%). Como rodar cada tipo e onde ficam as
@@ -101,7 +109,8 @@ evidências: [docs/TESTING.md](docs/TESTING.md).
 - **CD** (`.github/workflows/cd.yml`), após o CI verde na `main` ou em tags `v*`: publica as imagens no
   GitHub Container Registry com a versão e o commit, dispara o deploy e verifica a versão publicada.
 
-Processo completo: [docs/DEPLOY.md](docs/DEPLOY.md).
+Processo completo: [docs/DEPLOY.md](docs/DEPLOY.md). O CI também compila o **APK Android** e o publica como
+artefato ([docs/MOBILE.md](docs/MOBILE.md)). Revisão de segurança: [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Monitoramento
 

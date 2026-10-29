@@ -11,6 +11,7 @@ import '../../../data/models.dart';
 import '../../../state/providers.dart';
 import '../../shell/app_shell.dart';
 import '../../widgets/common.dart';
+import '../../../core/money_input.dart';
 
 class AccountsScreen extends ConsumerWidget {
   const AccountsScreen({super.key});
@@ -255,6 +256,16 @@ class _AccountCard extends ConsumerWidget {
             'Saldo inicial ${formatBRL(a.initialBalanceCents)} em ${formatBrDate(a.referenceDate)}',
             style: HoinkText.bodySm.copyWith(color: HoinkColors.outline),
           ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: Key('statement-${a.id}'),
+              onPressed: () => context.go('/contas/${entity.id}/${a.id}'),
+              icon: const Icon(Symbols.description, size: 18),
+              label: const Text('Ver extrato'),
+            ),
+          ),
         ],
       ),
     );
@@ -318,6 +329,7 @@ Future<void> showAccountForm(BuildContext context, WidgetRef ref, String entityI
               TextFormField(
                 controller: initial,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                inputFormatters: [BrlInputFormatter(allowNegative: true)],
                 validator: (v) => (v ?? '').trim().isEmpty || parseBRLToCents(v!) != null ? null : 'Valor inválido',
                 decoration: const InputDecoration(labelText: 'Saldo na data de referência', prefixText: 'R\$ '),
               ),
@@ -388,6 +400,7 @@ Future<void> _reconcile(BuildContext context, WidgetRef ref, String entityId, Ac
               TextField(
                 controller: ctrl,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                inputFormatters: [BrlInputFormatter(allowNegative: true)],
                 decoration: const InputDecoration(labelText: 'Saldo no banco', prefixText: 'R\$ '),
               ),
               const SizedBox(height: 8),

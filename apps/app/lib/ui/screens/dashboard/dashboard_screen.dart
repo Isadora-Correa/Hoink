@@ -14,14 +14,6 @@ import '../../widgets/common.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/transaction_tile.dart';
 
-class _HideValues extends Notifier<bool> {
-  @override
-  bool build() => false;
-  void toggle() => state = !state;
-}
-
-final hideValuesProvider = NotifierProvider<_HideValues, bool>(_HideValues.new);
-
 String _greeting() {
   final h = DateTime.now().hour;
   return h < 12 ? 'Bom dia' : (h < 18 ? 'Boa tarde' : 'Boa noite');
@@ -334,72 +326,74 @@ class _CashFlowChart extends StatelessWidget {
           const SizedBox(height: 24),
           SizedBox(
             height: 220,
-            child: BarChart(
-              BarChartData(
-                maxY: maxY * 1.15,
-                alignment: BarChartAlignment.spaceAround,
-                borderData: FlBorderData(show: false),
-                gridData: FlGridData(
-                  drawVerticalLine: false,
-                  horizontalInterval: maxY / 3,
-                  getDrawingHorizontalLine: (_) =>
-                      const FlLine(color: HoinkColors.surfaceHigh, strokeWidth: 1, dashArray: [4, 4]),
-                ),
-                titlesData: FlTitlesData(
-                  leftTitles: const AxisTitles(),
-                  rightTitles: const AxisTitles(),
-                  topTitles: const AxisTitles(),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 28,
-                      getTitlesWidget: (v, _) {
-                        final s = d.series[v.toInt()];
-                        final current = s.month == d.month;
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            monthShort(s.month),
-                            style: HoinkText.bodySm.copyWith(
-                              color: current ? HoinkColors.primary : HoinkColors.onSurfaceVariant,
-                              fontWeight: current ? FontWeight.w700 : FontWeight.w400,
+            child: PrivacyBlur(
+              child: BarChart(
+                BarChartData(
+                  maxY: maxY * 1.15,
+                  alignment: BarChartAlignment.spaceAround,
+                  borderData: FlBorderData(show: false),
+                  gridData: FlGridData(
+                    drawVerticalLine: false,
+                    horizontalInterval: maxY / 3,
+                    getDrawingHorizontalLine: (_) =>
+                        const FlLine(color: HoinkColors.surfaceHigh, strokeWidth: 1, dashArray: [4, 4]),
+                  ),
+                  titlesData: FlTitlesData(
+                    leftTitles: const AxisTitles(),
+                    rightTitles: const AxisTitles(),
+                    topTitles: const AxisTitles(),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 28,
+                        getTitlesWidget: (v, _) {
+                          final s = d.series[v.toInt()];
+                          final current = s.month == d.month;
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              monthShort(s.month),
+                              style: HoinkText.bodySm.copyWith(
+                                color: current ? HoinkColors.primary : HoinkColors.onSurfaceVariant,
+                                fontWeight: current ? FontWeight.w700 : FontWeight.w400,
+                              ),
                             ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  barTouchData: BarTouchData(
+                    touchTooltipData: BarTouchTooltipData(
+                      getTooltipColor: (_) => HoinkColors.charcoal,
+                      getTooltipItem: (group, _, rod, rodIndex) => BarTooltipItem(
+                        '${rodIndex == 0 ? 'Entradas' : 'Saídas'}\n${formatBRL(rod.toY.round())}',
+                        HoinkText.bodySm.copyWith(color: HoinkColors.ivory),
+                      ),
+                    ),
+                  ),
+                  barGroups: [
+                    for (var i = 0; i < d.series.length; i++)
+                      BarChartGroupData(
+                        x: i,
+                        barsSpace: 4,
+                        barRods: [
+                          BarChartRodData(
+                            toY: d.series[i].incomeCents.toDouble(),
+                            width: 16,
+                            color: HoinkColors.pine,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
                           ),
-                        );
-                      },
-                    ),
-                  ),
+                          BarChartRodData(
+                            toY: d.series[i].expenseCents.toDouble(),
+                            width: 16,
+                            color: HoinkColors.tertiaryFixedDim,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          ),
+                        ],
+                      ),
+                  ],
                 ),
-                barTouchData: BarTouchData(
-                  touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (_) => HoinkColors.charcoal,
-                    getTooltipItem: (group, _, rod, rodIndex) => BarTooltipItem(
-                      '${rodIndex == 0 ? 'Entradas' : 'Saídas'}\n${formatBRL(rod.toY.round())}',
-                      HoinkText.bodySm.copyWith(color: HoinkColors.ivory),
-                    ),
-                  ),
-                ),
-                barGroups: [
-                  for (var i = 0; i < d.series.length; i++)
-                    BarChartGroupData(
-                      x: i,
-                      barsSpace: 4,
-                      barRods: [
-                        BarChartRodData(
-                          toY: d.series[i].incomeCents.toDouble(),
-                          width: 16,
-                          color: HoinkColors.pine,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                        ),
-                        BarChartRodData(
-                          toY: d.series[i].expenseCents.toDouble(),
-                          width: 16,
-                          color: HoinkColors.tertiaryFixedDim,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                        ),
-                      ],
-                    ),
-                ],
               ),
             ),
           ),
@@ -488,26 +482,28 @@ class _CategoryCard extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  PieChart(
-                    PieChartData(
-                      centerSpaceRadius: 52,
-                      sectionsSpace: 2,
-                      sections: [
-                        for (var i = 0; i < top.length; i++)
-                          PieChartSectionData(
-                            value: top[i].cents.toDouble(),
-                            color: _chartColors[i % _chartColors.length],
-                            radius: 22,
-                            showTitle: false,
-                          ),
-                        if (cats.length > 5)
-                          PieChartSectionData(
-                            value: cats.skip(5).fold<int>(0, (s, c) => s + c.cents).toDouble(),
-                            color: HoinkColors.surfaceHighest,
-                            radius: 22,
-                            showTitle: false,
-                          ),
-                      ],
+                  PrivacyBlur(
+                    child: PieChart(
+                      PieChartData(
+                        centerSpaceRadius: 52,
+                        sectionsSpace: 2,
+                        sections: [
+                          for (var i = 0; i < top.length; i++)
+                            PieChartSectionData(
+                              value: top[i].cents.toDouble(),
+                              color: _chartColors[i % _chartColors.length],
+                              radius: 22,
+                              showTitle: false,
+                            ),
+                          if (cats.length > 5)
+                            PieChartSectionData(
+                              value: cats.skip(5).fold<int>(0, (s, c) => s + c.cents).toDouble(),
+                              color: HoinkColors.surfaceHighest,
+                              radius: 22,
+                              showTitle: false,
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                   Column(

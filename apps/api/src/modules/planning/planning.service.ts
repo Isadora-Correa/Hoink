@@ -13,6 +13,7 @@ import { invoicesDueUntil } from '../cards/cards.service';
 import { realizedFlows } from '../dashboard/dashboard.service';
 import { ensureGenerated } from '../recurring/recurring.service';
 import { settledAggregate } from '../settlements/settlements';
+import { cashAccountType } from '../../lib/ledgers';
 
 type Ctx = { userId: string; entityId: string; ip?: string };
 
@@ -131,7 +132,7 @@ export async function deleteBudget(ctx: Ctx, id: string) {
 /** Saldo disponível hoje: contas de dinheiro (sem cartões), até hoje. */
 async function cashBalance(entityId: string, today: string) {
   const accounts = await prisma.account.findMany({
-    where: { entityId, archivedAt: null, type: { not: 'CREDIT_CARD' } },
+    where: { entityId, archivedAt: null, type: cashAccountType },
   });
   const balances = await accountBalances(accounts, { until: today });
   return [...balances.values()].reduce((s, v) => s + v, 0);
@@ -149,7 +150,7 @@ async function cashItems(entityId: string, until: string): Promise<CashItem[]> {
       deletedAt: null,
       type: { in: ['INCOME', 'EXPENSE'] },
       status: { in: [...OPEN] },
-      account: { type: { not: 'CREDIT_CARD' } },
+      account: { type: cashAccountType },
       OR: [{ dueDate: { lte: parseDate(until) } }, { dueDate: null, competenceDate: { lte: parseDate(until) } }],
     },
     select: { type: true, status: true, amountCents: true, settledAmountCents: true, dueDate: true, competenceDate: true },
@@ -203,7 +204,11 @@ export async function reserve(entityId: string) {
     realizedFlows([entityId], from, to),
   ]);
   const flagged = accounts.filter((a) => a.isEmergencyReserve);
-  const reserveAccounts = flagged.length > 0 ? flagged : accounts.filter((a) => a.type === 'SAVINGS');
+  const reservePiggies = new Set(
+    (await prisma.piggyBank.findMany({ where: { entityId, kind: 'RESERVE' }, select: { id: true } })).map((p) => p.id),
+  );
+  const reserveAccounts =
+    flagged.length > 0 ? flagged : accounts.filter((a) => a.type === 'SAVINGS' || reservePiggies.has(a.id));
   const balances = await accountBalances(reserveAccounts, { until: today });
   const currentCents = [...balances.values()].reduce((s, v) => s + v, 0);
   const avgMonthlyExpenseCents = Math.round(Math.max(0, flows.expenseCents) / AVERAGE_MONTHS);

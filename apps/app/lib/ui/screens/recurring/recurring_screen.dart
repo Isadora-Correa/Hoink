@@ -13,6 +13,7 @@ import '../../widgets/common.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/transaction_tile.dart';
 import '../transactions/transactions_screen.dart' show settleDialog;
+import '../../../core/money_input.dart';
 
 final recurringRulesProvider = FutureProvider.family<List<RecurringRule>, String>((ref, entityId) async {
   ref.watch(dataVersionProvider);
@@ -302,6 +303,7 @@ Future<void> editSeriesDialog(BuildContext context, WidgetRef ref, RecurringRule
               TextField(
                 controller: amount,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [BrlInputFormatter()],
                 decoration: const InputDecoration(labelText: 'Valor previsto', prefixText: 'R\$ '),
               ),
               const SizedBox(height: 12),

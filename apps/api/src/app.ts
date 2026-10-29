@@ -17,6 +17,13 @@ import { entitiesRouter } from './modules/entities/entities.routes';
 import { cardsRouter } from './modules/cards/cards.routes';
 import { contactsRouter, payablesRouter } from './modules/contacts/contacts.routes';
 import { debtsRouter } from './modules/debts/debts.routes';
+import { gamificationRouter, marketRouter } from './modules/market/market.routes';
+import { piggyRouter } from './modules/piggy/piggy.routes';
+import { receiptsRouter } from './modules/receipts/receipts.routes';
+import { assistantRouter, entityAssistantRouter, notificationsRouter } from './modules/assistant/assistant.routes';
+import { consolidatedReportsRouter, entityReportsRouter, reportTypesRouter } from './modules/reports/reports.routes';
+import { investmentsRouter } from './modules/investments/investments.routes';
+import { consolidatedPatrimonyRouter, patrimonyRouter } from './modules/patrimony/patrimony.routes';
 import { consolidatedPlanningRouter, planningRouter } from './modules/planning/planning.routes';
 import { recurringRouter } from './modules/recurring/recurring.routes';
 import { transactionsRouter } from './modules/transactions/transactions.routes';
@@ -76,6 +83,13 @@ export function createApp() {
   api.use('/transfers', transfersRouter);
   api.use('/consolidated', consolidatedRouter);
   api.use('/consolidated/planning', consolidatedPlanningRouter);
+  api.use('/consolidated/patrimony', consolidatedPatrimonyRouter);
+  api.use('/consolidated/reports', consolidatedReportsRouter);
+  api.use('/reports', reportTypesRouter);
+  api.use('/market-rates', marketRouter);
+  api.use('/assistant', assistantRouter);
+  api.use('/notifications', notificationsRouter);
+  api.use('/gamification', gamificationRouter);
 
   const entity = Router({ mergeParams: true });
   entity.use(requireEntityAccess);
@@ -89,6 +103,12 @@ export function createApp() {
   entity.use('/cards', cardsRouter);
   entity.use('/debts', debtsRouter);
   entity.use('/planning', planningRouter);
+  entity.use('/piggy-banks', piggyRouter);
+  entity.use('/receipts', receiptsRouter);
+  entity.use('/reports', entityReportsRouter);
+  entity.use('/assistant', entityAssistantRouter);
+  entity.use('/investments', investmentsRouter);
+  entity.use('/patrimony', patrimonyRouter);
   api.use('/entities/:entityId', entity);
 
   app.use('/api', api);

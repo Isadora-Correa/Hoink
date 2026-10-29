@@ -1,20 +1,24 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 import '../state/providers.dart';
 import '../ui/screens/accounts/accounts_screen.dart';
 import '../ui/screens/accounts/statement_screen.dart';
+import '../ui/screens/assistant/assistant_screen.dart';
 import '../ui/screens/auth/auth_screens.dart';
 import '../ui/screens/cards/cards_screen.dart';
 import '../ui/screens/debts/debts_screen.dart';
+import '../ui/screens/investments/investments_screen.dart';
+import '../ui/screens/patrimony/patrimony_screen.dart';
+import '../ui/screens/piggy/piggy_screen.dart';
 import '../ui/screens/planning/planning_screen.dart';
 import '../ui/screens/dashboard/dashboard_screen.dart';
+import '../ui/screens/guide/test_guide_screen.dart';
 import '../ui/screens/contacts/contacts_screen.dart';
 import '../ui/screens/contacts/payables_screen.dart';
-import '../ui/screens/placeholder/coming_soon_screen.dart';
 import '../ui/screens/recurring/recurring_screen.dart';
+import '../ui/screens/reports/reports_screen.dart';
 import '../ui/screens/settings/settings_screen.dart';
 import '../ui/screens/transactions/transaction_form_screen.dart';
 import '../ui/screens/transactions/transactions_screen.dart';
@@ -118,22 +122,31 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/configuracoes', builder: (_, _) => const SettingsScreen()),
           GoRoute(
             path: '/cofrinhos',
-            builder: (_, _) => const ComingSoonScreen(
-              title: 'Meus Cofrinhos',
-              icon: Symbols.savings,
-              phase: 'Fase 3',
-              description: 'Metas com aportes e resgates, rendimento configurado (% do CDI, Selic, prefixado) separando principal, rendimento efetivo e estimado.',
-            ),
+            builder: (_, _) => const PiggyScreen(),
+            routes: [
+              GoRoute(
+                path: ':entityId/:id',
+                builder: (_, s) =>
+                    PiggyDetailScreen(entityId: s.pathParameters['entityId']!, piggyId: s.pathParameters['id']!),
+              ),
+            ],
           ),
           GoRoute(
             path: '/investimentos',
-            builder: (_, _) => const ComingSoonScreen(
-              title: 'Investimentos',
-              icon: Symbols.trending_up,
-              phase: 'Fase 3',
-              description: 'Carteira de CDB, LCI, LCA, Tesouro, fundos, ações e ETFs, com motores de cálculo próprios para cada produto.',
-            ),
+            builder: (_, _) => const InvestmentsScreen(),
+            routes: [
+              GoRoute(
+                path: ':entityId/:id',
+                builder: (_, s) => InvestmentDetailScreen(
+                  entityId: s.pathParameters['entityId']!,
+                  investmentId: s.pathParameters['id']!,
+                ),
+              ),
+            ],
           ),
+          GoRoute(path: '/patrimonio', builder: (_, _) => const PatrimonyScreen()),
+          GoRoute(path: '/extrato', builder: (_, _) => const StatementHubScreen()),
+          GoRoute(path: '/guia-de-testes', builder: (_, _) => const TestGuideScreen()),
           GoRoute(path: '/planejamento', builder: (_, _) => const PlanningScreen()),
           GoRoute(
             path: '/cartoes',
@@ -161,24 +174,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          GoRoute(
-            path: '/costelinha',
-            builder: (_, _) => const ComingSoonScreen(
-              title: 'Costelinha IA',
-              icon: Symbols.psychology,
-              phase: 'Fase 4',
-              description: 'Sua assistente financeira: o backend calcula os números e a Costelinha explica, sempre com base nos seus dados reais.',
-            ),
-          ),
-          GoRoute(
-            path: '/relatorios',
-            builder: (_, _) => const ComingSoonScreen(
-              title: 'Relatórios',
-              icon: Symbols.bar_chart,
-              phase: 'Fase 4',
-              description: 'Relatórios mensais, trimestrais e anuais com exportação em PDF, XLSX e CSV.',
-            ),
-          ),
+          GoRoute(path: '/costelinha', builder: (_, _) => const AssistantScreen()),
+          GoRoute(path: '/relatorios', builder: (_, _) => const ReportsScreen()),
         ],
       ),
     ],

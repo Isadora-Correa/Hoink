@@ -13,6 +13,7 @@ import '../../../state/providers.dart';
 import '../../shell/app_shell.dart';
 import '../../widgets/common.dart';
 import '../../widgets/transaction_tile.dart';
+import '../../../core/money_input.dart';
 
 class TxnFilter {
   const TxnFilter({this.q = '', this.kind, this.status, this.accountId, this.page = 1, this.sort = 'date_desc'});
@@ -451,6 +452,7 @@ Future<void> settleDialog(BuildContext context, WidgetRef ref, Txn t) async {
               key: const Key('settle-amount'),
               controller: amount,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [BrlInputFormatter()],
               decoration: InputDecoration(
                 labelText: variable ? 'Valor final da conta' : 'Valor pago agora',
                 helperText: variable ? 'Altera só esta ocorrência; as próximas continuam com o valor previsto.' : null,
