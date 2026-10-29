@@ -29,6 +29,7 @@ model User {
   memberships         EntityMember[]
   auditLogs           AuditLog[]
   achievements        Achievement[]
+  notifications       Notification[]
 
   @@map("users")
 }
@@ -698,6 +699,26 @@ model Achievement {
 
   @@unique([userId, code, piggyId])
   @@map("achievements")
+}
+
+/// Notificação no app (contas vencendo, orçamento, caixa negativo…). `dedupeKey` evita repetir o mesmo aviso.
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  entityId  String?   @map("entity_id") @db.Uuid
+  severity  String
+  title     String
+  body      String
+  link      String?
+  dedupeKey String    @map("dedupe_key")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  readAt    DateTime? @map("read_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
 }
 
 // ───────────────────────────── Investimentos ─────────────────────────────

@@ -238,3 +238,53 @@ export function monthsToGoal(startCents: number, monthlyCents: number, goalCents
   }
   return null;
 }
+
+export interface CompareOption {
+  label: string;
+  /** Taxa anual efetiva já resolvida (índice atual × percentual, ou prefixada). */
+  annualPct: number;
+  taxation: TaxRule;
+  costsBps?: number;
+}
+
+export interface CompareResult {
+  label: string;
+  annualPct: number;
+  grossCents: number;
+  taxCents: number;
+  netCents: number;
+  netGainCents: number;
+  /** Rentabilidade líquida no período, em pontos-base. */
+  netReturnBps: number;
+}
+
+/**
+ * Compara aplicações para um valor e prazo (estimativa): juros compostos pela taxa anual atual,
+ * custos anuais e imposto conforme a tributação (IR regressivo pelo prazo; isento; 15% em ações).
+ * Ordena pelo valor líquido.
+ */
+export function compareInvestments(amountCents: number, months: number, options: CompareOption[]): CompareResult[] {
+  const days = Math.round(months * 30.4375);
+  return options
+    .map((o) => {
+      const net = (o.annualPct - (o.costsBps ?? 0) / 100) / 100;
+      const gross = Math.round(amountCents * Math.pow(1 + net, months / 12));
+      const gain = gross - amountCents;
+      const tax =
+        gain <= 0 || o.taxation === 'EXEMPT'
+          ? 0
+          : o.taxation === 'STOCKS'
+            ? Math.round(gain * 0.15)
+            : Math.round(gain * (1 - iofRate(days)) * regressiveIrRate(days) + gain * iofRate(days));
+      return {
+        label: o.label,
+        annualPct: o.annualPct,
+        grossCents: gross,
+        taxCents: tax,
+        netCents: gross - tax,
+        netGainCents: gain - tax,
+        netReturnBps: Math.round(((gain - tax) * 10000) / amountCents),
+      };
+    })
+    .sort((a, b) => b.netCents - a.netCents);
+}

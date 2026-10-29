@@ -133,3 +133,17 @@ describe('gamificação', () => {
     expect(weeklyStreak(['2026-09-01'], '2026-10-28').current).toBe(0);
   });
 });
+
+describe('comparador de investimentos', () => {
+  it('LCI isenta pode render mais líquido que CDB com taxa bruta maior', async () => {
+    const { compareInvestments } = await import('./yields');
+    const r = compareInvestments(1_000_000, 12, [
+      { label: 'CDB 110% CDI', annualPct: 15, taxation: 'REGRESSIVE' },
+      { label: 'LCI 92% CDI', annualPct: 12.5, taxation: 'EXEMPT' },
+      { label: 'Poupança', annualPct: 6.17, taxation: 'EXEMPT' },
+    ]);
+    expect(r.map((x) => x.label)).toEqual(['LCI 92% CDI', 'CDB 110% CDI', 'Poupança']);
+    expect(r[1]).toMatchObject({ grossCents: 1_150_000, taxCents: 26_250, netCents: 1_123_750 });
+    expect(r[0]).toMatchObject({ grossCents: 1_125_000, taxCents: 0, netReturnBps: 1250 });
+  });
+});

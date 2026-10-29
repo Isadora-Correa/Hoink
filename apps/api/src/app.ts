@@ -20,6 +20,7 @@ import { debtsRouter } from './modules/debts/debts.routes';
 import { gamificationRouter, marketRouter } from './modules/market/market.routes';
 import { piggyRouter } from './modules/piggy/piggy.routes';
 import { receiptsRouter } from './modules/receipts/receipts.routes';
+import { assistantRouter, entityAssistantRouter, notificationsRouter } from './modules/assistant/assistant.routes';
 import { consolidatedReportsRouter, entityReportsRouter, reportTypesRouter } from './modules/reports/reports.routes';
 import { investmentsRouter } from './modules/investments/investments.routes';
 import { consolidatedPatrimonyRouter, patrimonyRouter } from './modules/patrimony/patrimony.routes';
@@ -86,6 +87,8 @@ export function createApp() {
   api.use('/consolidated/reports', consolidatedReportsRouter);
   api.use('/reports', reportTypesRouter);
   api.use('/market-rates', marketRouter);
+  api.use('/assistant', assistantRouter);
+  api.use('/notifications', notificationsRouter);
   api.use('/gamification', gamificationRouter);
 
   const entity = Router({ mergeParams: true });
@@ -103,6 +106,7 @@ export function createApp() {
   entity.use('/piggy-banks', piggyRouter);
   entity.use('/receipts', receiptsRouter);
   entity.use('/reports', entityReportsRouter);
+  entity.use('/assistant', entityAssistantRouter);
   entity.use('/investments', investmentsRouter);
   entity.use('/patrimony', patrimonyRouter);
   api.use('/entities/:entityId', entity);

@@ -21,6 +21,9 @@ const envSchema = z.object({
   MARKET_DATA_SYNC: z.enum(['true', 'false']).default('true'),
   /** Consulta a página da NFC-e na Sefaz e os dados da loja na BrasilAPI ao ler uma nota fiscal. */
   RECEIPT_LOOKUP: z.enum(['true', 'false']).default('true'),
+  /** Opcional: com a chave, a Costelinha usa IA só para EXPLICAR números já calculados. Sem ela, respostas determinísticas. */
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  ASSISTANT_MODEL: z.string().default('claude-opus-5-5'),
   /** Token de administração: permite lançar índices manualmente (valem para todos os usuários). Sem ele, ninguém lança. */
   ADMIN_TOKEN: z.string().min(16).optional(),
 });
