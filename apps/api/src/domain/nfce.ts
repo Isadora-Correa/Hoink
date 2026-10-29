@@ -254,3 +254,8 @@ export function suggestCategory(name: string | null, cnae: string | null): strin
   for (const [re, category] of byName) if (re.test(n)) return category;
   return null;
 }
+
+/** Página de verificação anti-robô (Cloudflare Turnstile, reCAPTCHA, hCaptcha) em vez da nota. */
+export function isCaptchaPage(html: string): boolean {
+  return /cf-turnstile|challenges\.cloudflare\.com|g-recaptcha|recaptcha\/api|hcaptcha\.com/i.test(html);
+}

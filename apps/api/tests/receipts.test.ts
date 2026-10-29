@@ -43,6 +43,8 @@ describe('nota fiscal (NFC-e)', () => {
       return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
     });
     vi.stubGlobal('fetch', fetchMock);
+    const brasilApiHeaders = () =>
+      (fetchMock.mock.calls.find((c) => String(c[0]).includes('brasilapi')) as unknown as [string, RequestInit])[1].headers;
     const res = await u.api.post(`${base}/receipts/preview`, { qr: `https://www.nfce.fazenda.sp.gov.br/qrcode?p=${k}|2|1|1|H` });
     expect(res.body.data).toMatchObject({
       source: 'SEFAZ',
@@ -53,6 +55,18 @@ describe('nota fiscal (NFC-e)', () => {
       suggestedCategoryId: await categoryId(u, u.personalId, 'Mercado'),
     });
     expect(res.body.data.items).toHaveLength(2);
+    expect(res.body.data).toMatchObject({ captcha: false, sefazUrl: expect.stringContaining('fazenda.sp.gov.br') });
+    // Sem User-Agent a BrasilAPI responde 403.
+    expect(brasilApiHeaders()).toMatchObject({ 'User-Agent': expect.stringContaining('hoink') });
+
+    // Fazenda com verificação anti-robô (ex.: ES): avisa e usa o nome da loja pela BrasilAPI.
+    fetchMock.mockImplementation(async (url: string) =>
+      url.includes('brasilapi')
+        ? new Response(JSON.stringify({ razao_social: 'MERCADINHO CAPIXABA LTDA', cnae_fiscal: 4712100 }), { status: 200 })
+        : new Response('<div class="cf-turnstile" data-sitekey="x"></div>', { status: 200, headers: { 'content-type': 'text/html; charset=iso-8859-1' } }),
+    );
+    const es = (await u.api.post(`${base}/receipts/preview`, { qr: `https://app.sefaz.es.gov.br/ConsultaNFCe/qrcode.aspx?p=${k}|2|1|1|H` })).body.data;
+    expect(es).toMatchObject({ source: 'QR', captcha: true, issuerName: 'MERCADINHO CAPIXABA LTDA', suggestedCategoryName: 'Mercado', totalCents: null });
 
     // Redirecionamento para fora: não é seguido (proteção contra SSRF), cai para os dados do QR.
     fetchMock.mockImplementation(async (url: string) =>
