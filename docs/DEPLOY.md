@@ -53,6 +53,8 @@ manual antes do deploy, se o grupo quiser.
 | `LOG_LEVEL` | não | `info` (padrão) |
 | `MARKET_DATA_SYNC` | não | `true` (padrão) busca CDI, Selic e IPCA no Banco Central; `false` desliga |
 | `RECEIPT_LOOKUP` | não | `true` (padrão) consulta a NFC-e na Sefaz e a loja na BrasilAPI; `false` usa só o QR Code |
+| `ANTHROPIC_API_KEY` | não | Liga a explicação por IA na Costelinha (pago por uso). Sem ela, respostas determinísticas |
+| `ASSISTANT_MODEL` | não | Modelo da explicação (padrão `claude-opus-5-5`; `claude-haiku-5-5` é mais barato) |
 | `ADMIN_TOKEN` | não | Permite lançar índices manualmente (`PUT /api/market-rates`, cabeçalho `X-Admin-Token`) |
 
 As migrations são aplicadas automaticamente na inicialização do contêiner (`prisma migrate deploy`).

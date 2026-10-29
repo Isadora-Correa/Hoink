@@ -11,7 +11,8 @@ receita nem despesa), consolidação por participação, conversão de valores e
 faturas de cartão (fechamento, vencimento, divisão de parcelas), amortização PRICE/SAC com valores de referência,
 quitação antecipada, projeção de caixa (confirmado × previsto), situação de orçamentos, rendimento por % do
 CDI/prefixado/IPCA+ com dias úteis e custos, IR regressivo/IOF por lote (FIFO), simulações e gamificação
-(níveis, marcos, sequência semanal).
+(níveis, marcos, sequência semanal), leitura de NFC-e (chave, QR offline, layout da Sefaz, bloqueio de SSRF),
+comparador de investimentos e reconhecimento das perguntas da Costelinha.
 
 **App** (`apps/app/test`): formatação e leitura de valores em reais, cliente HTTP (Bearer, idempotência, erros,
 falha de rede), redirecionamentos de rota (deep links, proteção contra open redirect) e widgets (logo, login,
@@ -31,7 +32,9 @@ liquidação parcial, extrato, conciliação, transferências PF↔PJ, consolida
 validação de entrada, métricas, recorrências, clientes/fornecedores, cartões (pagamento de fatura sem
 duplicar despesa — RN08), dívidas (amortização e quitação), planejamento (orçamentos, projeção e reserva), cofrinhos (guardar/resgatar sem
 duplicar dinheiro, rendimento estimado × confirmado, desejo realizado, conquistas), investimentos (motores por
-produto, posição, proventos), índices (só administração lança manualmente) e patrimônio sem dupla contagem.
+produto, posição, proventos), índices (só administração lança manualmente), patrimônio sem dupla contagem, nota
+fiscal (Sefaz simulada, redirecionamento bloqueado, nota duplicada), relatórios (mesmos números do dashboard em
+JSON/CSV/XLSX/PDF, injeção de fórmulas, 11 tipos), Costelinha (fatos, IA simulada com falha e recusa) e notificações.
 
 ```bash
 pnpm db:up                                  # cria hoink e hoink_test
@@ -40,7 +43,7 @@ pnpm --filter @hoink/api test:coverage      # relatório em apps/api/coverage/in
 
 ## 3. E2E
 
-`e2e/tests/fase1.spec.ts`, `fase2.spec.ts` e `fase3.spec.ts` (Playwright) usam o **app Flutter Web compilado** e a **API real**, em desktop
+`e2e/tests/fase1.spec.ts` a `fase4.spec.ts` (Playwright) usam o **app Flutter Web compilado** e a **API real**, em desktop
 (1440×1000) e mobile (Pixel 7):
 
 1. Rota protegida redireciona para o login e volta ao destino.
@@ -52,6 +55,8 @@ pnpm --filter @hoink/api test:coverage      # relatório em apps/api/coverage/in
 6. Planejamento mostra a projeção de 30/60/90 dias.
 7. Guardar no cofrinho de um desejo pela interface: sai do saldo, não vira despesa e desbloqueia conquista.
 8. Patrimônio mostra ativos menos passivos.
+9. Costelinha responde "quanto posso investir" com os números da API.
+10. Relatório na tela e PDF baixado pela API.
 
 ```bash
 # API rodando em :3333 (AUTH_RATE_LIMIT alto para os cadastros de teste) e build web servido em :8080
