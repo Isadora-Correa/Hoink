@@ -338,4 +338,9 @@ class HoinkRepository {
       ? api.post('/entities/$entityId/patrimony/items', body)
       : api.patch('/entities/$entityId/patrimony/items/$id', body);
   Future<void> deletePatrimonyItem(String entityId, String id) => api.delete('/entities/$entityId/patrimony/items/$id');
+
+  // ── Nota fiscal ──
+  /// Lê o QR Code (link) ou a chave de acesso de uma NFC-e e devolve a prévia do gasto.
+  Future<ReceiptPreview> receiptPreview(String entityId, String qr) async =>
+      ReceiptPreview((await api.post('/entities/$entityId/receipts/preview', {'qr': qr}))['data']);
 }

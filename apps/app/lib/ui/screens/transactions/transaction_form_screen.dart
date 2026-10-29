@@ -14,6 +14,7 @@ import '../../shell/app_shell.dart';
 import '../../widgets/common.dart';
 import '../../widgets/icons.dart';
 import '../cards/cards_screen.dart' show cardsProvider, showPurchaseForm;
+import 'receipt_dialog.dart';
 import '../contacts/contacts_screen.dart' show contactsProvider;
 import 'transactions_screen.dart' show settleDialog;
 import '../../../core/money_input.dart';
@@ -73,6 +74,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   String _classification = 'PRO_LABORE';
   DateTime _date = DateTime.now();
   DateTime? _dueDate;
+
+  /// Chave da nota fiscal lida (impede lançar a mesma nota duas vezes).
+  String? _receiptKey;
   bool _busy = false;
   bool _loading = false;
   Txn? _original;
@@ -138,6 +142,27 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   void _close() => context.canPop() ? context.pop() : context.go('/lancamentos');
+
+  /// Lê a nota fiscal e preenche o formulário; o usuário confere e salva.
+  Future<void> _readReceipt() async {
+    final entityId = _resolveEntityId(ref.read(entitiesProvider).value ?? const []);
+    if (entityId == null) return;
+    final p = await showReceiptDialog(context, ref, entityId);
+    if (p == null || !mounted) return;
+    setState(() {
+      _type = 'EXPENSE';
+      _receiptKey = p.accessKey;
+      if (p.totalCents != null) _amount.text = formatAmount(p.totalCents!);
+      _description.text = p.issuerName ?? 'Compra';
+      _counterparty.text = p.issuerName ?? '';
+      if (p.suggestedCategoryId != null) _categoryId = p.suggestedCategoryId;
+      if (p.issuedAt != null) _date = parseIso(p.issuedAt!);
+      if (p.items.isNotEmpty) _notes.text = p.itemsAsNotes();
+      final tags = _tags.text.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toSet()..add('nota-fiscal');
+      _tags.text = tags.join(', ');
+    });
+    showSuccess(context, 'Nota lida. Confira os dados e salve.');
+  }
 
   /// Compras no cartão têm fluxo próprio: escolhe-se o cartão e o número de parcelas.
   Future<void> _cardPurchase() async {
@@ -230,6 +255,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           'contactId': _contactId,
           'notes': _notes.text.trim().isEmpty ? null : _notes.text.trim(),
           'tags': tags,
+          if (!widget.isEdit && _receiptKey != null) 'receiptKey': _receiptKey,
         };
         if (widget.isEdit && (_original?.isRecurring ?? false)) {
           final scope = await _askScope();
@@ -973,6 +999,20 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                   if (_recurring) _recurrenceOptions(),
                 ],
                 if (!widget.isEdit && _type == 'EXPENSE') ...[
+                  const Divider(),
+                  ListTile(
+                    key: const Key('read-receipt'),
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Symbols.qr_code_scanner, color: HoinkColors.pine),
+                    title: Text(_receiptKey == null ? 'Ler nota fiscal' : 'Nota fiscal lida', style: HoinkText.labelMd),
+                    subtitle: Text(
+                      _receiptKey == null
+                          ? 'Preenche loja, valor, data e itens pelo QR Code do cupom'
+                          : 'Chave ${_receiptKey!.substring(0, 4)}…${_receiptKey!.substring(40)} — confira e salve',
+                    ),
+                    trailing: const Icon(Symbols.chevron_right),
+                    onTap: _readReceipt,
+                  ),
                   const Divider(),
                   ListTile(
                     key: const Key('card-purchase'),

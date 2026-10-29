@@ -1486,3 +1486,56 @@ class Patrimony {
   final List<PatrimonyItem> items;
   final List<({String month, int assetsCents, int liabilitiesCents, int netWorthCents})> history;
 }
+
+// ───────────── Nota fiscal ─────────────
+
+class ReceiptPreview {
+  ReceiptPreview(Json j)
+    : accessKey = j['accessKey'],
+      issuerName = j['issuerName'],
+      cnpj = j['cnpj'],
+      issuedAt = j['issuedAt'],
+      issuedMonth = j['issuedMonth'],
+      totalCents = j['totalCents'] as int?,
+      discountCents = j['discountCents'] as int?,
+      paymentMethod = j['paymentMethod'],
+      items = (j['items'] as List)
+          .map(
+            (i) => (
+              description: i['description'] as String,
+              quantity: (i['quantity'] as num?)?.toDouble(),
+              unit: i['unit'] as String?,
+              totalCents: i['totalCents'] as int,
+            ),
+          )
+          .toList(),
+      suggestedCategoryId = j['suggestedCategoryId'],
+      suggestedCategoryName = j['suggestedCategoryName'],
+      source = j['source'],
+      alreadyRegistered = j['alreadyRegistered'] as bool;
+  final String accessKey;
+  final String? issuerName;
+  final String cnpj;
+  final String? issuedAt;
+  final String issuedMonth;
+  final int? totalCents;
+  final int? discountCents;
+  final String? paymentMethod;
+  final List<({String description, double? quantity, String? unit, int totalCents})> items;
+  final String? suggestedCategoryId;
+  final String? suggestedCategoryName;
+
+  /// SEFAZ (página oficial lida) ou QR (só os dados do QR Code; o usuário completa).
+  final String source;
+  final bool alreadyRegistered;
+
+  /// Itens como texto para as observações do lançamento.
+  String itemsAsNotes() {
+    final lines = [
+      for (final i in items)
+        '${i.quantity == null ? '' : '${i.quantity!.toString().replaceAll(RegExp(r'\.0$'), '').replaceAll('.', ',')} ${i.unit ?? ''} '.trimLeft()}${i.description}',
+    ];
+    final text = 'Itens da nota:\n${lines.join('\n')}';
+    return text.length > 990 ? '${text.substring(0, 987)}...' : text;
+  }
+}

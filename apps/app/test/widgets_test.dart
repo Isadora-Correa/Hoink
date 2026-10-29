@@ -319,4 +319,38 @@ void main() {
     expect(find.textContaining('65.000,00'), findsWidgets);
     expect(find.text('Onix'), findsOneWidget);
   });
+
+  testWidgets('lê a nota fiscal e preenche o gasto (loja, valor, data, categoria e itens)', (tester) async {
+    final repo = FakeRepository();
+    await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
+    await tester.tap(find.text('Novo Lançamento'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('read-receipt')));
+    await tester.tap(find.byKey(const Key('read-receipt')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('receipt-code')), 'https://www.nfce.fazenda.sp.gov.br/qrcode?p=x');
+    await tester.tap(find.byKey(const Key('read-receipt-confirm')));
+    await tester.pumpAndSettle();
+    expect(find.text('SUPERMERCADO BOM PREÇO'), findsOneWidget);
+    expect(find.text('2 itens'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('use-receipt')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Nubank Ultravioleta').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('save-transaction')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('save-transaction')));
+    await tester.pumpAndSettle();
+    final body = repo.created.single;
+    expect(body, containsPair('amountCents', 3500));
+    expect(body, containsPair('description', 'SUPERMERCADO BOM PREÇO'));
+    expect(body, containsPair('categoryId', 'c1'));
+    expect(body, containsPair('competenceDate', '2025-06-15'));
+    expect(body, containsPair('receiptKey', '35261012345678000195650010000123451123456780'));
+    expect(body['notes'] as String, contains('BANANA PRATA KG'));
+    expect(body['tags'], contains('nota-fiscal'));
+  });
 }

@@ -356,6 +356,26 @@ class FakeRepository extends HoinkRepository {
       {'month': '2025-06', 'assetsCents': 10700000, 'liabilitiesCents': 4200000, 'netWorthCents': 6500000},
     ],
   });
+
+  @override
+  Future<ReceiptPreview> receiptPreview(String entityId, String qr) async => ReceiptPreview({
+    'accessKey': '35261012345678000195650010000123451123456780',
+    'issuerName': 'SUPERMERCADO BOM PREÇO',
+    'cnpj': '12345678000195',
+    'issuedAt': '2025-06-15',
+    'issuedMonth': '2025-06',
+    'totalCents': 3500,
+    'discountCents': 153,
+    'paymentMethod': 'Cartão de Débito',
+    'items': [
+      {'description': 'ARROZ TIPO 1 5KG', 'quantity': 1, 'unit': 'UN', 'totalCents': 2790},
+      {'description': 'BANANA PRATA KG', 'quantity': 1.235, 'unit': 'KG', 'totalCents': 863},
+    ],
+    'suggestedCategoryId': 'c1',
+    'suggestedCategoryName': 'Mercado',
+    'source': 'SEFAZ',
+    'alreadyRegistered': false,
+  });
 }
 
 Json invoiceJson(String month) => {
