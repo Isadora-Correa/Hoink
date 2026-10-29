@@ -63,13 +63,19 @@ async function investCapacityAnswer(s: Scope): Promise<Partial> {
   const market = await marketStatus();
   const cdi = market.find((m) => m.index === 'CDI');
   const cdiMonthlyPpm = cdi?.annualPct ? Math.round((Math.pow(1 + cdi.annualPct / 100, 1 / 12) - 1) * 1_000_000) : null;
+  // O dinheiro já separado como reserva de emergência (em conta de dinheiro) não é sobra para investir.
+  const reserveCashAccounts = await prisma.account.findMany({
+    where: { id: { in: r.accounts.map((a) => a.id) }, type: cashAccountType },
+    select: { id: true },
+  });
+  const reserveCash = r.accounts.filter((a) => reserveCashAccounts.some((x) => x.id === a.id)).reduce((sum, a) => sum + Math.max(0, a.balanceCents), 0);
   const debts = (await Promise.all(s.entities.map((e) => listDebts(e.id)))).flat();
   const expensive = debts
     .filter((d) => cdiMonthlyPpm !== null && d.monthlyRatePpm > cdiMonthlyPpm && d.summary.outstandingPrincipalCents > 0)
     .map((d) => ({ name: d.name, monthlyRatePpm: d.monthlyRatePpm, outstandingCents: d.summary.outstandingPrincipalCents }));
   const c = investCapacity({
-    balanceCents: cf.startBalanceCents,
-    lowestProjected30Cents: lowest30,
+    balanceCents: cf.startBalanceCents - reserveCash,
+    lowestProjected30Cents: lowest30 - reserveCash,
     avgMonthlyExpenseCents: r.avgMonthlyExpenseCents,
     reserveMissingCents: r.missingCents,
     expensiveDebts: expensive,
@@ -89,6 +95,7 @@ async function investCapacityAnswer(s: Scope): Promise<Partial> {
     facts: [
       { label: 'Saldo disponível hoje', value: cf.startBalanceCents, type: 'money' },
       { label: 'Menor saldo previsto em 30 dias', value: lowest30, type: 'money' },
+      ...(reserveCash > 0 ? [{ label: 'Já separado como reserva (não entra)', value: reserveCash, type: 'money' as const }] : []),
       { label: 'Folga mantida em conta', value: c.cushionCents, type: 'money' },
       { label: 'Pode investir com segurança', value: c.availableCents, type: 'money' },
       { label: 'Falta na reserva de emergência', value: r.missingCents, type: 'money' },

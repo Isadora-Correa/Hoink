@@ -62,6 +62,16 @@ describe('Costelinha — perguntas', () => {
     expect(r.sources.length).toBeGreaterThan(0);
   });
 
+  it('não conta o dinheiro da reserva de emergência como sobra para investir', async () => {
+    const poupanca = (await u.api.post(`${base}/accounts`, { name: 'Reserva', type: 'SAVINGS', initialBalanceCents: 1_000_000, referenceDate: '2025-01-01' })).body.data;
+    await u.api.put(`${base}/planning/reserve`, { targetMonths: 6, accountIds: [poupanca.id] });
+    const r = (await ask('Quanto posso investir este mês?')).body.data;
+    const fact = (label: string) => r.facts.find((f: { label: string }) => f.label === label)?.value;
+    expect(fact('Saldo disponível hoje')).toBe(1_300_000);
+    expect(fact('Já separado como reserva (não entra)')).toBe(1_000_000);
+    expect(fact('Pode investir com segurança')).toBeLessThanOrEqual(300_000);
+  });
+
   it('contas da semana, cliente que mais pagou e pergunta desconhecida', async () => {
     const in2 = addDaysISO(today, 2);
     await u.api.post(`${base}/transactions`, { type: 'EXPENSE', description: 'Internet', amountCents: 9_990, accountId: acc.id, status: 'PENDING', competenceDate: in2, dueDate: in2 });
