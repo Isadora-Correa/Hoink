@@ -1,0 +1,7 @@
+.dart_tool
+build
+android
+ios
+macos
+test
+Dockerfile
