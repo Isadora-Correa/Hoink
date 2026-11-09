@@ -23,6 +23,8 @@ const envSchema = z.object({
   RECEIPT_LOOKUP: z.enum(['true', 'false']).default('true'),
   /** Token de administração: permite lançar índices manualmente (valem para todos os usuários). Sem ele, ninguém lança. */
   ADMIN_TOKEN: z.string().min(16).optional(),
+  /** Segredo das tarefas agendadas (GET /cron/daily). A Vercel envia "Authorization: Bearer <CRON_SECRET>". */
+  CRON_SECRET: z.string().min(16).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
