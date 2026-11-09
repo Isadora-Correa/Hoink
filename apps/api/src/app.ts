@@ -15,6 +15,7 @@ import { categoriesRouter } from './modules/categories/categories.routes';
 import { consolidatedRouter, entityDashboardRouter } from './modules/dashboard/dashboard.routes';
 import { entitiesRouter } from './modules/entities/entities.routes';
 import { cardsRouter } from './modules/cards/cards.routes';
+import { cronRouter } from './modules/cron/cron.routes';
 import { contactsRouter, payablesRouter } from './modules/contacts/contacts.routes';
 import { debtsRouter } from './modules/debts/debts.routes';
 import { gamificationRouter, marketRouter } from './modules/market/market.routes';
@@ -75,6 +76,8 @@ export function createApp() {
     res.set('Content-Type', registry.contentType);
     res.send(await registry.metrics());
   });
+
+  app.use('/cron', cronRouter);
 
   const api = Router();
   api.use('/auth', authRouter);
