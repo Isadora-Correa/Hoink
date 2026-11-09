@@ -102,3 +102,52 @@ DATABASE_URL="postgresql://...neon.tech/...?sslmode=require" pnpm --filter @hoin
 | **Vercel Hobby** para o front | Simples para sites estáticos | Só uso não comercial; mesmo problema do build do Flutter fora do CI |
 
 Fly.io e Koyeb deixaram de ser opções práticas sem custo para contas novas.
+
+## Opção B — Vercel (API + front)
+
+A Vercel não roda servidor contínuo nem Docker: a API vira uma função serverless (`apps/api/api/index.mjs`, que usa o
+build do tsup) e as tarefas periódicas viram um cron diário (`GET /cron/daily`, protegido por `CRON_SECRET`). O
+front é gerado pelo `apps/app/vercel-build.sh`, que baixa o Flutter 3.47.8 durante o build.
+
+> No plano Hobby o cron roda **uma vez por dia** e o uso deve ser não comercial.
+
+### 1. Banco no Neon
+
+Igual ao passo 2 acima, mas acrescente `&connection_limit=1` ao final da string
+(`...?sslmode=require&connection_limit=1`). As migrations rodam no build da API.
+
+### 2. Projeto da API
+
+Na Vercel, *Add New → Project* → repositório `Hoink`:
+
+- **Root Directory:** `apps/api`
+- **Framework Preset:** `Other` (build, saída e install já estão no `apps/api/vercel.json`)
+- **Environment Variables:**
+
+  | Variável | Valor |
+  |---|---|
+  | `DATABASE_URL` | string do Neon |
+  | `NODE_ENV` | `production` |
+  | `CORS_ORIGINS` | URL do front (passo 3), ex.: `https://hoink-app.vercel.app` |
+  | `METRICS_TOKEN` | texto aleatório longo |
+  | `CRON_SECRET` | texto aleatório longo (mín. 16 caracteres) |
+  | `APP_TIMEZONE` | `America/Sao_Paulo` |
+
+### 3. Projeto do front
+
+Outro projeto a partir do **mesmo** repositório:
+
+- **Root Directory:** `apps/app`
+- **Framework Preset:** `Other`
+- **Environment Variables:** `API_BASE_URL` = URL da API, **sem barra no final**.
+
+O primeiro build demora alguns minutos (download do Flutter).
+
+### 4. Conferir
+
+```bash
+curl https://SUA-API.vercel.app/health   # {"status":"ok","db":"ok"}
+```
+
+- Se a URL do front mudar: atualize `CORS_ORIGINS` e faça *Redeploy* da API.
+- Se a URL da API mudar: faça *Redeploy* do front (o endereço fica embutido no app).
