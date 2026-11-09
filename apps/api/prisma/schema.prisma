@@ -5,7 +5,9 @@
 //  * Exclusões de registros financeiros são lógicas (deleted_at) para manter rastreabilidade (RN14).
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // "rhel-openssl-3.0.x" é o Linux das funções da Vercel.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {

@@ -9,6 +9,15 @@ const IVORY = '#FFF9F1';
 const PINK = '#F3A9B8';
 const MUTED = '#5E6B66';
 
+/**
+ * Pasta das fontes. No Docker/local o processo roda em apps/api; na Vercel o diretório de trabalho é a raiz
+ * do repositório (/var/task), com os arquivos em apps/api/assets.
+ */
+function fontsDir(): string {
+  const candidates = [join(process.cwd(), 'assets/fonts'), join(process.cwd(), 'apps/api/assets/fonts')];
+  return candidates.find((d) => existsSync(join(d, 'Sora-400.ttf'))) ?? candidates[0]!;
+}
+
 /** Evita injeção de fórmulas ao abrir CSV/XLSX em planilhas (=, +, -, @ no início do texto). */
 function safeText(v: string): string {
   return /^[=+\-@\t\r]/.test(v) ? `'${v}` : v;
@@ -96,7 +105,7 @@ export function toPdf(r: Report): Promise<Buffer> {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    const fonts = join(process.cwd(), 'assets/fonts');
+    const fonts = fontsDir();
     const regular = existsSync(join(fonts, 'Sora-400.ttf')) ? join(fonts, 'Sora-400.ttf') : 'Helvetica';
     const bold = existsSync(join(fonts, 'Sora-600.ttf')) ? join(fonts, 'Sora-600.ttf') : 'Helvetica-Bold';
     const left = doc.page.margins.left;

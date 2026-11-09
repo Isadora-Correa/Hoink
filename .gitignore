@@ -9,3 +9,5 @@ coverage
 playwright-report
 test-results
 apps/api/uploads
+apps/api/public
+.vercel
