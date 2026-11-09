@@ -44,7 +44,8 @@ describe('investimentos — motores por produto', () => {
     expect(inv.gainCents).toBe(inv.valueCents - 1_000_000);
     expect(inv.taxEstimatedCents).toBeGreaterThan(0);
     expect(await balanceOf(u, u.personalId, acc.id)).toBe(4_000_000);
-    const dash = (await u.api.get(`${base}/dashboard`)).body.data;
+    // O aporte foi 20 dias atrás: consultar o mês dele (no começo do mês ele cai no mês anterior).
+    const dash = (await u.api.get(`${base}/dashboard?month=${start.slice(0, 7)}`)).body.data;
     expect(dash.realized).toMatchObject({ expenseCents: 0, incomeCents: 0, contributionsCents: 1_000_000 });
 
     // Valor do extrato vira o ponto de partida (efetivo).
