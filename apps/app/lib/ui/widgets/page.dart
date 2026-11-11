@@ -59,9 +59,12 @@ class ModulePage extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (action != null) ...[const SizedBox(width: 12), action!],
+                    if (action != null && wide) ...[const SizedBox(width: 12), action!],
                   ],
                 ),
+                // No celular a ação vai para baixo do título: ao lado dele, um Wrap com vários botões
+                // recebe largura ilimitada da Row e espreme o título até quebrar letra por letra.
+                if (action != null && !wide) ...[const SizedBox(height: 12), action!],
                 const SizedBox(height: 20),
                 ...children,
               ],
