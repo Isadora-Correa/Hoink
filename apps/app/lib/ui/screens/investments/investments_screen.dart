@@ -267,7 +267,14 @@ Future<void> showInvestmentForm(BuildContext context, WidgetRef ref, String enti
                       kind = v!;
                       if (marketKinds.contains(kind)) indexer = 'MARKET';
                       if (kind == 'FUND' && indexer != 'MARKET') indexer = 'MARKET';
-                      if ({'CDB', 'LCI', 'LCA'}.contains(kind) && indexer == 'MARKET') indexer = 'CDI_PERCENT';
+                      // Saindo de Ação/ETF/Fundo: "Cotação de mercado" não vale para os demais tipos.
+                      if (indexer == 'MARKET' && !marketKinds.contains(kind) && kind != 'FUND') {
+                        indexer = switch (kind) {
+                          'TESOURO' => 'PREFIXED',
+                          'OTHER' => 'MANUAL',
+                          _ => 'CDI_PERCENT',
+                        };
+                      }
                     }),
                   ),
                   const SizedBox(height: 12),
@@ -290,7 +297,7 @@ Future<void> showInvestmentForm(BuildContext context, WidgetRef ref, String enti
                         Expanded(
                           child: TextField(
                             controller: ticker,
-                            decoration: const InputDecoration(labelText: 'Código (ex.: ITSA4)'),
+                            decoration: const InputDecoration(labelText: 'Código', hintText: 'ITSA4'),
                           ),
                         ),
                       ],
@@ -811,7 +818,8 @@ Future<void> showInvestmentComparator(BuildContext context, WidgetRef ref) async
                                 for (final r in rows)
                                   {
                                     'label':
-                                        '${r.label} ${r.rate.text}${r.indexer == 'CDI_PERCENT' ? '% CDI' : (r.indexer == 'IPCA_PLUS' ? '% + IPCA' : '% a.a.')}',
+                                        // "Tesouro IPCA+" já diz o índice: "Tesouro IPCA+ 6,5% a.a." (antes saía "6,5% + IPCA").
+                                        '${r.label} ${r.rate.text}${r.indexer == 'CDI_PERCENT' ? '% CDI' : '% a.a.'}',
                                     'indexer': r.indexer,
                                     'rateBps': ((double.tryParse(r.rate.text.replaceAll(',', '.')) ?? 0) * 100).round(),
                                     'taxation': r.taxation,
