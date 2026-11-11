@@ -179,7 +179,8 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               ),
               _MiniKpi(
                 'A pagar',
-                dash.forecast.expenseCents + dash.overdue.expenseCents,
+                // Saída prevista: negativo como "Despesas" (antes aparecia "+ R$" no card).
+                -(dash.forecast.expenseCents + dash.overdue.expenseCents),
                 Symbols.schedule,
                 HoinkColors.tertiaryContainer,
               ),
