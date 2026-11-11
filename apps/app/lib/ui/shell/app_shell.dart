@@ -104,8 +104,8 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.path;
     final wide = MediaQuery.sizeOf(context).width >= desktopBreakpoint;
-    final hideFab =
-        location.startsWith('/lancamentos/') || location.startsWith('/configuracoes') || location == '/dividas/nova';
+    // "Novo lançamento" só na aba de Lançamentos; nas outras abas o botão não faz sentido.
+    final showFab = location == '/lancamentos';
 
     if (wide) {
       return Scaffold(
@@ -136,7 +136,7 @@ class AppShell extends ConsumerWidget {
           ],
         ),
       ),
-      floatingActionButton: hideFab
+      floatingActionButton: !showFab
           ? null
           : FloatingActionButton.extended(
               onPressed: () => context.push('/lancamentos/novo'),
@@ -353,13 +353,7 @@ class _TopBarState extends ConsumerState<_TopBar> {
           const Spacer(),
           const PrivacyToggle(),
           const NotificationBell(),
-          const SizedBox(width: 8),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
-            onPressed: () => context.push('/lancamentos/novo'),
-            icon: const Icon(Symbols.add, size: 18),
-            label: const Text('Novo Lançamento'),
-          ),
+          // Sem "Novo Lançamento" aqui: a barra aparece em todas as abas e a tela de Lançamentos já tem o seu.
           const SizedBox(width: 12),
           Container(width: 1, height: 24, color: HoinkColors.surfaceHighest),
           const SizedBox(width: 12),

@@ -33,6 +33,13 @@ Future<void> pumpApp(
   await tester.pumpAndSettle();
 }
 
+/// Abre o formulário pelo botão "Novo Lançamento", que só existe na aba de Lançamentos.
+Future<void> openNewTransaction(WidgetTester tester) async {
+  await tester.tap(find.widgetWithText(InkWell, 'Lançamentos').first);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Novo Lançamento'));
+}
+
 void main() {
   setUpAll(() => initializeDateFormatting('pt_BR'));
   tearDown(() => Privacy.hidden = false);
@@ -81,13 +88,17 @@ void main() {
     await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901', size: const Size(400, 900));
     expect(find.text('Olá, Miguel!'), findsOneWidget);
     expect(find.byType(NavigationBar), findsOneWidget);
+    // O botão "Novo" só aparece na aba de Lançamentos.
+    expect(find.text('Novo'), findsNothing);
+    await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Lançamentos')));
+    await tester.pumpAndSettle();
     expect(find.text('Novo'), findsOneWidget);
   });
 
   testWidgets('cria despesa pelo formulário enviando centavos ao backend', (tester) async {
     final repo = FakeRepository();
     await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
-    await tester.tap(find.text('Novo Lançamento'));
+    await openNewTransaction(tester);
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('amount')), '350,00');
     await tester.enterText(find.widgetWithText(TextFormField, 'Descrição da despesa'), 'Supermercado');
@@ -136,7 +147,7 @@ void main() {
   testWidgets('cria conta recorrente mensal de valor variável pelo formulário', (tester) async {
     final repo = FakeRepository();
     await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
-    await tester.tap(find.text('Novo Lançamento'));
+    await openNewTransaction(tester);
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('amount')), '250,00');
     await tester.enterText(find.widgetWithText(TextFormField, 'Descrição da despesa'), 'Conta de energia');
@@ -331,7 +342,7 @@ void main() {
   testWidgets('lê a nota fiscal e preenche o gasto (loja, valor, data, categoria e itens)', (tester) async {
     final repo = FakeRepository();
     await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
-    await tester.tap(find.text('Novo Lançamento'));
+    await openNewTransaction(tester);
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('read-receipt')));
     await tester.tap(find.byKey(const Key('read-receipt')));
