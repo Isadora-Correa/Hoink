@@ -15,7 +15,10 @@ Future<void> main() async {
   // URLs limpas no Web (/lancamentos em vez de /#/lancamentos), permitindo deep links.
   usePathUrlStrategy();
   // Expõe a árvore de acessibilidade no Web (leitores de tela e testes E2E por papel/rótulo).
-  if (kIsWeb) SemanticsBinding.instance.ensureSemantics();
+  // Exceto no iOS (Safari/WebKit): com a semântica forçada, os campos de texto viram <input> da camada
+  // de acessibilidade e o toque nem sempre dá foco a eles, então o teclado não abre (principalmente
+  // em diálogos). No iOS o VoiceOver ainda liga a semântica sozinho pelo botão de acessibilidade do Flutter.
+  if (kIsWeb && defaultTargetPlatform != TargetPlatform.iOS) SemanticsBinding.instance.ensureSemantics();
   await initializeDateFormatting('pt_BR');
   runApp(const ProviderScope(child: HoinkApp()));
 }
