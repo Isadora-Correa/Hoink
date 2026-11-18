@@ -7,11 +7,7 @@ Gestão financeira pessoal e profissional (PF/PJ), com visão consolidada.
 
 [![CI](https://github.com/Isadora-Correa/Hoink/actions/workflows/ci.yml/badge.svg)](https://github.com/Isadora-Correa/Hoink/actions/workflows/ci.yml)
 [![CD](https://github.com/Isadora-Correa/Hoink/actions/workflows/cd.yml/badge.svg)](https://github.com/Isadora-Correa/Hoink/actions/workflows/cd.yml)
-![Node](https://img.shields.io/badge/Node-24-339933?logo=node.js&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)
-![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+
 
 </div>
 
@@ -1265,7 +1261,3 @@ Guia completo: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 | Sophia Marcelino | [@Sophia-Araujo](https://github.com/Sophia-Araujo) |
 
 **Contexto acadêmico:** projeto final da disciplina de DevOps — FATEC.
-
-**Licença:** *(definir — ex.: MIT ou "Projeto acadêmico, todos os direitos reservados")*.
-
-**Contato:** *(e-mail da equipe)*
