@@ -239,7 +239,7 @@ Detalhes completos (modelo de dados, regras e roadmap) em [`docs/ARCHITECTURE.md
 
 Cada caso de uso corresponde a um requisito funcional (RF01 a RF13, da [seção 3](#3-requisitos)).
 
-![Diagrama de casos de uso do hoink.](docs/diagramas/caso-de-uso.jpg)
+![Diagrama de casos de uso do hoink.](docs/diagramas/caso-de-uso.jpeg)
 
 **Atores**
 
@@ -274,7 +274,7 @@ O diagrama de classes representa o modelo de domínio do sistema, com os princip
 valores monetários (`*Centavos`) são sempre inteiros em centavos (`BigInt`). As **composições** (losango preenchido)
 indicam que a parte não existe sem o todo, por exemplo `Liquidacao` em `Lancamento` e `Fatura` em `CartaoCredito`.
 
-![Diagrama de classes do hoink.](docs/diagramas/diagrama-de-classes.jpg)
+![Diagrama de classes do hoink.](docs/diagramas/diagrama-de-classes.jpeg)
 
 **Correspondência com o banco de dados** ([`schema.prisma`](apps/api/prisma/schema.prisma)):
 
@@ -301,7 +301,7 @@ Os diagramas descrevem as interações entre o app, a API (rota → serviço), o
 
 #### SD01 – Realizar login (RF01 · RNF02)
 
-![SD01 – Realizar login](docs/diagramas/sd01-login.jpg)
+![SD01 – Realizar login](docs/diagramas/sd01-login.jpeg)
 
 - O limitador de tentativas (`authLimiter`) e a validação Zod rodam antes do serviço.
 - A senha é verificada com **argon2id**; credenciais inválidas retornam `401`, sem revelar se o e-mail existe.
