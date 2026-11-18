@@ -1245,6 +1245,7 @@ Guia completo: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 | [`docs/MOBILE.md`](docs/MOBILE.md) | Build e publicação Android/iOS |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | Design system, protótipos e marca |
 | [`perf/README.md`](perf/README.md) | Testes de carga |
+| [`docs/diagramas/`](docs/diagramas/) | Diagramas UML: casos de uso, classes e sequência (SD01 a SD05) |
 
 ---
 
