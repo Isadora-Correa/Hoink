@@ -109,4 +109,24 @@ describe('contas e saldo (RN15)', () => {
     expect(b.body.data.id).toBe(a.body.data.id);
     expect(await balanceOf(u, u.personalId, acc.id)).toBe(-999);
   });
+
+  it('cliques repetidos ao mesmo tempo com a mesma chave gravam a transferência uma vez só', async () => {
+    const u = await createUser();
+    const from = await createAccount(u, u.personalId, 10_000, 'Origem');
+    const to = await createAccount(u, u.personalId, 0, 'Destino');
+    const body = { fromAccountId: from.id, toAccountId: to.id, amountCents: 10_000, date: '2025-06-01' };
+    const send = () => u.api.post('/api/transfers', body).set('Idempotency-Key', 'transfer-1');
+    const results = await Promise.all([send(), send(), send()]);
+    // Uma grava; as outras recebem a mesma resposta ou "em processamento" — nunca uma segunda transferência.
+    expect(results.filter((r) => r.status === 201).length).toBeGreaterThanOrEqual(1);
+    for (const r of results) expect([201, 409]).toContain(r.status);
+    expect(await balanceOf(u, u.personalId, from.id)).toBe(0);
+    expect(await balanceOf(u, u.personalId, to.id)).toBe(10_000);
+
+    // A resposta já está gravada quando o cliente a recebe: repetir depois devolve a mesma, sem regravar.
+    const again = await send();
+    expect(again.status).toBe(201);
+    expect(again.headers['idempotent-replayed']).toBe('true');
+    expect(await balanceOf(u, u.personalId, from.id)).toBe(0);
+  });
 });

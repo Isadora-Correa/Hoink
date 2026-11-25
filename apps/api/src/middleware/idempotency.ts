@@ -45,8 +45,12 @@ export async function idempotency(req: Request, res: Response, next: NextFunctio
             data: { statusCode, response: (body ?? null) as Prisma.InputJsonValue },
           })
         : prisma.idempotencyKey.delete({ where: { userId_key: { userId, key } } });
-    void op.catch(() => undefined);
-    return originalJson(body);
+    // Grava a resposta ANTES de enviá-la: na Vercel a função pode ser congelada logo após responder,
+    // e a repetição com a mesma chave ficaria presa em "ainda em processamento".
+    void op
+      .catch(() => undefined)
+      .then(() => originalJson(body));
+    return res;
   };
   next();
 }
