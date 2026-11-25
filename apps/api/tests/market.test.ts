@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { env } from '../src/config/env';
 import { formatDate, todayISO } from '../src/lib/dates';
 import { prisma } from '../src/lib/prisma';
-import { marketStatus, syncMarketRates } from '../src/modules/market/market.service';
-import { resetDb } from './helpers';
+import { marketStatus, resetOnDemandSync, syncMarketRates } from '../src/modules/market/market.service';
+import { createUser, resetDb } from './helpers';
 
 type Handler = (url: string) => Response | Promise<Response>;
 
@@ -29,6 +29,7 @@ beforeEach(async () => {
   await resetDb();
   await prisma.marketRate.deleteMany();
   env.MARKET_DATA_SYNC = 'true';
+  resetOnDemandSync();
   vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout'] });
 });
 
@@ -110,5 +111,45 @@ describe('Índices de mercado — reserva quando o Banco Central falha', () => {
     const r = await sync();
     expect(r).toMatchObject({ skipped: false, result: { CDI: 'erro', SELIC: 'erro', IPCA: 'erro' } });
     expect(await prisma.marketRate.count()).toBe(0);
+  });
+});
+
+describe('Índices de mercado — busca sob demanda (Vercel sem processo contínuo)', () => {
+  it('abrir a tela com índice desatualizado busca na hora; repetir logo depois não busca de novo', async () => {
+    let calls = 0;
+    mockFetch((url) => {
+      calls++;
+      if (url.includes('api.bcb.gov.br')) return sgsBlocked();
+      if (url.includes('brasilapi.com.br/api/taxas')) return brasilApi();
+      if (url.includes('apisidra.ibge.gov.br')) return sidra();
+      throw new Error(`URL inesperada: ${url}`);
+    });
+    const u = await createUser();
+
+    const first = await u.api.get('/api/market-rates');
+    expect(first.status).toBe(200);
+    const cdi = (first.body.data as { index: string; source: string; stale: boolean }[]).find((r) => r.index === 'CDI')!;
+    expect(cdi).toMatchObject({ source: 'BRASILAPI', stale: false });
+    // Uma tentativa só no Banco Central por índice antes de ir para a reserva (resposta rápida).
+    expect(calls).toBeLessThanOrEqual(6);
+
+    const callsBefore = calls;
+    await prisma.marketRate.deleteMany();
+    const second = await u.api.get('/api/market-rates');
+    expect(second.status).toBe(200);
+    expect(calls).toBe(callsBefore);
+  });
+
+  it('com os índices em dia, não chama nenhuma fonte', async () => {
+    const today = todayISO();
+    await prisma.marketRate.createMany({
+      data: (['CDI', 'SELIC'] as const).map((index) => ({ index, date: new Date(`${today}T00:00:00Z`), ratePct: '0.05', source: 'BCB' as const })),
+    });
+    await prisma.marketRate.create({ data: { index: 'IPCA', date: new Date(`${today.slice(0, 7)}-01T00:00:00Z`), ratePct: '0.3', source: 'BCB' } });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const u = await createUser();
+    expect((await u.api.get('/api/market-rates')).status).toBe(200);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
