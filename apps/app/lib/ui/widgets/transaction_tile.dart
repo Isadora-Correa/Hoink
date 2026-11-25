@@ -36,78 +36,99 @@ class TransactionTile extends StatelessWidget {
       t.account.name,
     ].whereType<String>().join(' • ');
 
+    final title = Text(
+      t.description,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: HoinkText.headlineSm.copyWith(fontSize: 15),
+    );
+    final details = Row(
+      children: [
+        if (t.isRecurring)
+          const Padding(
+            padding: EdgeInsets.only(right: 4),
+            child: Icon(Symbols.event_repeat, size: 14, color: HoinkColors.surfaceTint, semanticLabel: 'Recorrente'),
+          ),
+        Flexible(
+          child: Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant),
+          ),
+        ),
+      ],
+    );
+    final amount = MoneyText(
+      t.signedAmount,
+      signed: true,
+      style: HoinkText.headlineSm,
+      color: isIncome ? HoinkColors.surfaceTint : HoinkColors.onSurface,
+    );
+    final status = showStatus && t.effectiveStatus != 'SETTLED'
+        ? StatusPill(t.effectiveStatus)
+        : Text(formatShortDate(t.displayDate), style: HoinkText.bodySm.copyWith(color: HoinkColors.outline));
+    // Recebimento/pagamento parcial: mostra quanto ainda falta.
+    final remaining = t.isOpen && t.settledAmountCents > 0
+        ? Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              'Falta ${formatBRL(t.remainingCents)}',
+              style: HoinkText.labelSm.copyWith(color: HoinkColors.onSurfaceVariant),
+            ),
+          )
+        : null;
+
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-        child: Row(
-          children: [
-            IconBadge(transactionIcon(t.type, t.category?.icon), background: bg, foreground: fg),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final icon = IconBadge(transactionIcon(t.type, t.category?.icon), background: bg, foreground: fg);
+            if (c.maxWidth >= 480) {
+              return Row(
                 children: [
-                  Text(
-                    t.description,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: HoinkText.headlineSm.copyWith(fontSize: 15),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      if (t.isRecurring)
-                        const Padding(
-                          padding: EdgeInsets.only(right: 4),
-                          child: Icon(
-                            Symbols.event_repeat,
-                            size: 14,
-                            color: HoinkColors.surfaceTint,
-                            semanticLabel: 'Recorrente',
-                          ),
-                        ),
-                      Flexible(
-                        child: Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                MoneyText(
-                  t.signedAmount,
-                  signed: true,
-                  style: HoinkText.headlineSm,
-                  color: isIncome ? HoinkColors.surfaceTint : HoinkColors.onSurface,
-                ),
-                const SizedBox(height: 4),
-                if (showStatus && t.effectiveStatus != 'SETTLED')
-                  StatusPill(t.effectiveStatus)
-                else
-                  Text(formatShortDate(t.displayDate), style: HoinkText.bodySm.copyWith(color: HoinkColors.outline)),
-                // Recebimento/pagamento parcial: mostra quanto ainda falta.
-                if (t.isOpen && t.settledAmountCents > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      'Falta ${formatBRL(t.remainingCents)}',
-                      style: HoinkText.labelSm.copyWith(color: HoinkColors.onSurfaceVariant),
+                  icon,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [title, const SizedBox(height: 2), details],
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [amount, const SizedBox(height: 4), status, ?remaining],
+                  ),
+                  ?trailingExtra,
+                ],
+              );
+            }
+            // Celular: o nome usa a linha toda; embaixo, categoria/conta e depois status/data + valor.
+            // Com valor e status ao lado, o nome ficava com ~80px e quebrava no meio ("Financia-mento").
+            return Row(
+              children: [
+                icon,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      title,
+                      const SizedBox(height: 2),
+                      details,
+                      const SizedBox(height: 6),
+                      Row(children: [status, const Spacer(), amount]),
+                      ?remaining,
+                    ],
+                  ),
+                ),
+                ?trailingExtra,
               ],
-            ),
-            ?trailingExtra,
-          ],
+            );
+          },
         ),
       ),
     );

@@ -151,7 +151,11 @@ class KpiTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          MoneyText(cents, style: HoinkText.headlineMd, color: cents < 0 ? HoinkColors.error : null),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: MoneyText(cents, style: HoinkText.headlineMd, color: cents < 0 ? HoinkColors.error : null),
+          ),
           if (caption != null) ...[
             const SizedBox(height: 4),
             Text(caption!, style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant)),

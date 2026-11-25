@@ -369,3 +369,25 @@ class PrivacyToggle extends ConsumerWidget {
     );
   }
 }
+
+/// Grade de cards de resumo (KPIs). No celular vira 2 colunas que ocupam a largura toda;
+/// em telas largas mantém a largura natural de cada card.
+class KpiWrap extends StatelessWidget {
+  const KpiWrap({super.key, required this.children, this.spacing = 12, this.runSpacing = 12});
+  final List<Widget> children;
+  final double spacing;
+  final double runSpacing;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, c) {
+      final narrow = c.maxWidth.isFinite && c.maxWidth < 600;
+      final tileWidth = narrow ? ((c.maxWidth - spacing) / 2).floorToDouble() : null;
+      return Wrap(
+        spacing: spacing,
+        runSpacing: runSpacing,
+        children: [for (final child in children) tileWidth == null ? child : SizedBox(width: tileWidth, child: child)],
+      );
+    },
+  );
+}

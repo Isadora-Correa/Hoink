@@ -83,12 +83,39 @@ class StatementScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   HeroCard(
-                    child: Row(
-                      children: [
-                        Expanded(child: _Stat('Saldo inicial do período', s.openingBalanceCents)),
-                        Expanded(child: _Stat('Saldo final do período', s.closingBalanceCents)),
-                        Expanded(child: _Stat('Saldo atual', s.account.balanceCents)),
-                      ],
+                    // No celular três colunas viravam "R\$ 2.04…": o saldo atual vai para uma linha própria.
+                    child: LayoutBuilder(
+                      builder: (context, c) {
+                        final opening = _Stat('Saldo inicial do período', s.openingBalanceCents);
+                        final closing = _Stat('Saldo final do período', s.closingBalanceCents);
+                        final current = _Stat('Saldo atual', s.account.balanceCents);
+                        if (c.maxWidth >= 520) {
+                          return Row(
+                            children: [
+                              Expanded(child: opening),
+                              const SizedBox(width: 12),
+                              Expanded(child: closing),
+                              const SizedBox(width: 12),
+                              Expanded(child: current),
+                            ],
+                          );
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            current,
+                            const SizedBox(height: 16),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(child: opening),
+                                const SizedBox(width: 12),
+                                Expanded(child: closing),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -125,7 +152,11 @@ class _Stat extends StatelessWidget {
     children: [
       Text(label.toUpperCase(), style: HoinkText.labelSm.copyWith(color: HoinkColors.onPrimaryContainer)),
       const SizedBox(height: 6),
-      MoneyText(cents, style: HoinkText.headlineMd, color: Colors.white),
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: MoneyText(cents, style: HoinkText.headlineMd, color: Colors.white),
+      ),
     ],
   );
 }

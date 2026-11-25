@@ -809,7 +809,7 @@ class _PiggyDetailScreenState extends ConsumerState<PiggyDetailScreen> {
               subtitle: [piggyKindLabels[p.kind]!, p.yieldLabel, ?p.institution].join(' • '),
               leading: IconButton(onPressed: () => context.go('/cofrinhos'), icon: const Icon(Symbols.arrow_back)),
               children: [
-                Wrap(
+                KpiWrap(
                   spacing: 12,
                   runSpacing: 12,
                   children: [

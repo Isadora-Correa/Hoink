@@ -63,7 +63,11 @@ class _PayablesScreenState extends ConsumerState<PayablesScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            MoneyText(cents, style: HoinkText.headlineMd),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: MoneyText(cents, style: HoinkText.headlineMd),
+            ),
           ],
         ),
       ),
@@ -140,7 +144,7 @@ class _PayablesScreenState extends ConsumerState<PayablesScreen> {
                   data: (p) => Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Wrap(
+                      KpiWrap(
                         spacing: 12,
                         runSpacing: 12,
                         children: [

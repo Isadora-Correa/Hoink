@@ -164,7 +164,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
     final kpis = dash == null
         ? const SizedBox.shrink()
-        : Wrap(
+        : KpiWrap(
             spacing: 12,
             runSpacing: 12,
             children: [
@@ -523,20 +523,33 @@ class _MiniKpi extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 16, color: dark ? HoinkColors.primaryFixedDim : color),
             const SizedBox(width: 6),
-            Text(
-              label.toUpperCase(),
-              style: HoinkText.labelSm.copyWith(
-                color: dark ? HoinkColors.onPrimaryContainer : HoinkColors.onSurfaceVariant,
+            Flexible(
+              child: Text(
+                label.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: HoinkText.labelSm.copyWith(
+                  color: dark ? HoinkColors.onPrimaryContainer : HoinkColors.onSurfaceVariant,
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        MoneyText(cents, signed: true, style: HoinkText.headlineMd, color: dark ? Colors.white : HoinkColors.onSurface),
+        // Valores grandes encolhem em vez de estourar o card estreito do celular.
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: MoneyText(
+            cents,
+            signed: true,
+            style: HoinkText.headlineMd,
+            color: dark ? Colors.white : HoinkColors.onSurface,
+          ),
+        ),
       ],
     );
     return SizedBox(

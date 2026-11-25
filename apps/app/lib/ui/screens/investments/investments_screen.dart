@@ -106,7 +106,7 @@ class InvestmentsScreen extends ConsumerWidget {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Wrap(
+                    KpiWrap(
                       spacing: 12,
                       runSpacing: 12,
                       children: [
@@ -450,7 +450,7 @@ class InvestmentDetailScreen extends ConsumerWidget {
                 ], icon: Symbols.schedule),
                 const SizedBox(height: 12),
               ],
-              Wrap(
+              KpiWrap(
                 spacing: 12,
                 runSpacing: 12,
                 children: [

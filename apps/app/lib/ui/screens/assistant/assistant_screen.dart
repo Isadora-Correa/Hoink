@@ -84,11 +84,16 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: OutlinedButton(
-                style: OutlinedButton.styleFrom(alignment: Alignment.centerLeft, minimumSize: const Size(0, 42)),
+                style: OutlinedButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  minimumSize: const Size(0, 42),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                ),
                 onPressed: _busy ? null : () => _ask(s),
                 child: Row(
                   children: [
-                    Expanded(child: Text(s, overflow: TextOverflow.ellipsis)),
+                    // A pergunta inteira, mesmo que ocupe duas linhas no celular.
+                    Expanded(child: Text(s, maxLines: 2, overflow: TextOverflow.ellipsis)),
                     const Icon(Symbols.arrow_forward, size: 16),
                   ],
                 ),

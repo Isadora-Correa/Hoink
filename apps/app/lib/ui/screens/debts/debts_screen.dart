@@ -550,7 +550,7 @@ class DebtDetailScreen extends ConsumerWidget {
               ].join(' • '),
               leading: IconButton(onPressed: () => context.go('/dividas'), icon: const Icon(Symbols.arrow_back)),
               children: [
-                Wrap(
+                KpiWrap(
                   spacing: 12,
                   runSpacing: 12,
                   children: [

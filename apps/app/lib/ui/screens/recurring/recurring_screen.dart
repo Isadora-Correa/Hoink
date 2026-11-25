@@ -159,63 +159,98 @@ class _RuleCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final r = rule;
+    final icon = IconBadge(
+      r.categoryIcon != null ? categoryIcon(r.categoryIcon) : Symbols.event_repeat,
+      background: r.isIncome ? HoinkColors.surfaceContainer : HoinkColors.surfaceLow,
+      foreground: r.isIncome ? HoinkColors.surfaceTint : HoinkColors.pine,
+    );
+    final title = Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(r.description, style: HoinkText.headlineSm),
+        ruleStatusPill(r.status),
+        if (r.overdueCount > 0) const StatusPill('OVERDUE'),
+      ],
+    );
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${r.frequencyLabel} • ${amountKindLabels[r.amountKind]} • ${r.accountName}',
+          style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant),
+        ),
+        if (r.nextDate != null && r.isActive)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Próxima: ${formatBrDate(r.nextDate!)}',
+              style: HoinkText.labelSm.copyWith(color: HoinkColors.surfaceTint),
+            ),
+          ),
+      ],
+    );
+    final amount = Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        MoneyText(
+          r.isIncome ? r.amountCents : -r.amountCents,
+          signed: true,
+          style: HoinkText.headlineSm,
+          color: r.isIncome ? HoinkColors.surfaceTint : HoinkColors.onSurface,
+        ),
+        if (r.amountKind != 'FIXED')
+          Text('valor previsto', style: HoinkText.bodySm.copyWith(color: HoinkColors.outline)),
+      ],
+    );
     return HoinkCard(
       padding: const EdgeInsets.all(18),
       onTap: () => context.push('/recorrencias/${r.entityId}/${r.id}'),
-      child: Row(
-        children: [
-          IconBadge(
-            r.categoryIcon != null ? categoryIcon(r.categoryIcon) : Symbols.event_repeat,
-            background: r.isIncome ? HoinkColors.surfaceContainer : HoinkColors.surfaceLow,
-            foreground: r.isIncome ? HoinkColors.surfaceTint : HoinkColors.pine,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(
+        builder: (context, c) {
+          if (c.maxWidth >= 480) {
+            return Row(
               children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(r.description, style: HoinkText.headlineSm),
-                    ruleStatusPill(r.status),
-                    if (r.overdueCount > 0) const StatusPill('OVERDUE'),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${r.frequencyLabel} • ${amountKindLabels[r.amountKind]} • ${r.accountName}',
-                  style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant),
-                ),
-                if (r.nextDate != null && r.isActive)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'Próxima: ${formatBrDate(r.nextDate!)}',
-                      style: HoinkText.labelSm.copyWith(color: HoinkColors.surfaceTint),
-                    ),
+                icon,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [title, const SizedBox(height: 4), details],
                   ),
+                ),
+                const SizedBox(width: 12),
+                amount,
+                RuleActionsMenu(rule: r),
               ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            );
+          }
+          // Celular: valor e menu na mesma linha do título apertavam o texto até quebrar no meio da palavra.
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              MoneyText(
-                r.isIncome ? r.amountCents : -r.amountCents,
-                signed: true,
-                style: HoinkText.headlineSm,
-                color: r.isIncome ? HoinkColors.surfaceTint : HoinkColors.onSurface,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  icon,
+                  const SizedBox(width: 14),
+                  Expanded(child: title),
+                  RuleActionsMenu(rule: r),
+                ],
               ),
-              if (r.amountKind != 'FIXED')
-                Text('valor previsto', style: HoinkText.bodySm.copyWith(color: HoinkColors.outline)),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(child: details),
+                  const SizedBox(width: 12),
+                  amount,
+                ],
+              ),
             ],
-          ),
-          RuleActionsMenu(rule: r),
-        ],
+          );
+        },
       ),
     );
   }

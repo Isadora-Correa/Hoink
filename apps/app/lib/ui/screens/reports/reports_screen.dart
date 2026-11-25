@@ -150,11 +150,31 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 children: [
                   SegmentedButton<String>(
                     showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(value: 'month', label: Text('Mês')),
-                      ButtonSegment(value: 'quarter', label: Text('Trimestre')),
-                      ButtonSegment(value: 'year', label: Text('Ano')),
-                      ButtonSegment(value: 'custom', label: Text('Personalizado')),
+                    style: MediaQuery.sizeOf(context).width < 480
+                        ? SegmentedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            visualDensity: VisualDensity.compact,
+                          )
+                        : null,
+                    // No celular os quatro botões dividem ~300px: rótulos curtos e numa linha só
+                    // (antes quebrava em "Trimest / re" e "Person / alizado").
+                    segments: [
+                      for (final (value, full, short) in const [
+                        ('month', 'Mês', 'Mês'),
+                        ('quarter', 'Trimestre', 'Trim.'),
+                        ('year', 'Ano', 'Ano'),
+                        ('custom', 'Personalizado', 'Período'),
+                      ])
+                        ButtonSegment(
+                          value: value,
+                          tooltip: full,
+                          label: Text(
+                            MediaQuery.sizeOf(context).width < 480 ? short : full,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.fade,
+                          ),
+                        ),
                     ],
                     selected: {_period},
                     onSelectionChanged: (s) => setState(() => _period = s.first),

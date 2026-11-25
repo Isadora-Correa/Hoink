@@ -164,6 +164,7 @@ class _BalanceHero extends ConsumerWidget {
                   hidden: hidden,
                 ),
               ),
+              const SizedBox(width: 12),
               Expanded(
                 child: _HeroStat(
                   icon: Symbols.arrow_upward,
@@ -172,6 +173,7 @@ class _BalanceHero extends ConsumerWidget {
                   hidden: hidden,
                 ),
               ),
+              const SizedBox(width: 12),
               Expanded(
                 child: _HeroStat(
                   icon: Symbols.schedule,
@@ -213,7 +215,12 @@ class _HeroStat extends StatelessWidget {
         ],
       ),
       const SizedBox(height: 4),
-      MoneyText(cents, hidden: hidden, style: HoinkText.headlineSm, color: Colors.white),
+      // No celular as três colunas são estreitas: o valor encolhe em vez de encostar no vizinho.
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: MoneyText(cents, hidden: hidden, style: HoinkText.headlineSm, color: Colors.white),
+      ),
     ],
   );
 }

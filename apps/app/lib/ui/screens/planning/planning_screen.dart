@@ -120,7 +120,7 @@ class _CashflowSectionState extends ConsumerState<_CashflowSection> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (cf.alerts.isNotEmpty) ...[AlertBanner(cf.alerts), const SizedBox(height: 12)],
-                    Wrap(
+                    KpiWrap(
                       spacing: 12,
                       runSpacing: 12,
                       children: [
