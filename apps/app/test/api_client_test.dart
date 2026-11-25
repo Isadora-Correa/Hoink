@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -97,5 +98,43 @@ void main() {
       client: MockClient((_) async => http.Response('<html>502</html>', 502)),
     );
     expect(() => api.get('/x'), throwsA(isA<ApiException>().having((e) => e.code, 'code', 'BAD_RESPONSE')));
+  });
+
+  test('cliques repetidos enquanto envia viram um único envio (sem transferência duplicada)', () async {
+    var calls = 0;
+    final release = Completer<void>();
+    final api = ApiClient(
+      baseUrl: 'http://api',
+      client: MockClient((req) async {
+        calls++;
+        await release.future;
+        return http.Response(
+          jsonEncode({
+            'data': {'id': 't$calls'},
+          }),
+          201,
+        );
+      }),
+    );
+    final body = {'fromAccountId': 'a', 'toAccountId': 'b', 'amountCents': 10000};
+    // Três cliques em "Transferir" antes da resposta chegar: só o primeiro envia.
+    final first = api.post('/transfers', body, 'k-0');
+    final repeats = [for (var i = 1; i < 3; i++) api.post('/transfers', body, 'k-$i')];
+    for (final r in repeats) {
+      await expectLater(r, throwsA(isA<ApiException>().having((e) => e.isDuplicate, 'isDuplicate', isTrue)));
+    }
+    release.complete();
+    expect((await first)['data']['id'], 't1');
+    expect(calls, 1);
+
+    // Depois que termina, um novo envio (outra transferência de verdade) segue normalmente.
+    await api.post('/transfers', body, 'k-novo');
+    expect(calls, 2);
+
+    // Envios diferentes ao mesmo tempo não se misturam.
+    final a = api.post('/transfers', {...body, 'amountCents': 1});
+    final b = api.post('/transfers', {...body, 'amountCents': 2});
+    await Future.wait([a, b]);
+    expect(calls, 4);
   });
 }

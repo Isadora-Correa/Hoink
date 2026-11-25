@@ -12,6 +12,10 @@ class ApiException implements Exception {
 
   bool get isUnauthorized => status == 401;
 
+  /// Clique repetido enquanto o mesmo envio ainda está a caminho: é ignorado em silêncio.
+  bool get isDuplicate => code == duplicateCode;
+  static const duplicateCode = 'DUPLICATE_REQUEST';
+
   @override
   String toString() => message;
 }
@@ -24,6 +28,26 @@ class ApiClient {
   final http.Client _http;
   String? token;
   void Function()? onUnauthorized;
+
+  /// Envios que alteram dados e ainda estão em andamento, por método + rota + corpo.
+  /// Clicar várias vezes em "Salvar"/"Transferir" não manda outro envio igual (antes cada clique
+  /// gravava de novo: transferência e aplicação duplicadas). O clique repetido recebe um erro
+  /// [ApiException.isDuplicate], que as telas ignoram: só o primeiro fecha o formulário e avisa
+  /// (se todos recebessem o resultado, cada um fechava uma tela e o app ficava em branco).
+  final _inFlight = <String, Future<dynamic>>{};
+
+  Future<dynamic> _once(String method, String path, Object? body, Future<dynamic> Function() send) {
+    final key = '$method $path ${body is List<int> ? body.length : jsonEncode(body)}';
+    if (_inFlight.containsKey(key)) {
+      return Future.error(ApiException(0, ApiException.duplicateCode, 'Envio repetido ignorado.'));
+    }
+    // Bloco com chaves: `remove` devolve o próprio Future e o whenComplete ficaria esperando por ele mesmo.
+    final future = send().whenComplete(() {
+      _inFlight.remove(key);
+    });
+    _inFlight[key] = future;
+    return future;
+  }
 
   Uri _uri(String path, [Map<String, Object?>? query]) {
     final q = <String, String>{};
@@ -43,21 +67,31 @@ class ApiClient {
   Future<dynamic> get(String path, {Map<String, Object?>? query}) =>
       _send(() => _http.get(_uri(path, query), headers: _headers()));
 
-  Future<dynamic> post(String path, [Object? body, String? idempotencyKey]) => _send(
-    () => _http.post(
-      _uri(path),
-      headers: _headers(idempotencyKey: idempotencyKey),
-      body: jsonEncode(body ?? {}),
+  Future<dynamic> post(String path, [Object? body, String? idempotencyKey]) => _once(
+    'POST',
+    path,
+    body,
+    () => _send(
+      () => _http.post(
+        _uri(path),
+        headers: _headers(idempotencyKey: idempotencyKey),
+        body: jsonEncode(body ?? {}),
+      ),
     ),
   );
 
-  Future<dynamic> patch(String path, Object body) =>
-      _send(() => _http.patch(_uri(path), headers: _headers(), body: jsonEncode(body)));
+  Future<dynamic> patch(String path, Object body) => _once(
+    'PATCH',
+    path,
+    body,
+    () => _send(() => _http.patch(_uri(path), headers: _headers(), body: jsonEncode(body))),
+  );
 
   Future<dynamic> put(String path, Object body) =>
-      _send(() => _http.put(_uri(path), headers: _headers(), body: jsonEncode(body)));
+      _once('PUT', path, body, () => _send(() => _http.put(_uri(path), headers: _headers(), body: jsonEncode(body))));
 
-  Future<dynamic> delete(String path) => _send(() => _http.delete(_uri(path), headers: _headers()));
+  Future<dynamic> delete(String path) =>
+      _once('DELETE', path, null, () => _send(() => _http.delete(_uri(path), headers: _headers())));
 
   /// Envia um corpo binário (ex.: foto de perfil).
   Future<dynamic> putBytes(String path, List<int> bytes, String contentType) =>

@@ -226,6 +226,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   );
 
   Future<void> _submit(String entityId) async {
+    // O botão só fica desativado no próximo quadro: cliques rápidos no mesmo instante paravam aqui.
+    if (_busy) return;
     setState(() => _fieldErrors = const {});
     if (!_form.currentState!.validate()) return;
     final cents = parseBRLToCents(_amount.text)!;
