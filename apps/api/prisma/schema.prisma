@@ -114,6 +114,7 @@ model FinancialEntity {
   planning          PlanningSettings?
   investments       Investment[]
   patrimonyItems    PatrimonyItem[]
+  debitCards        DebitCard[]
   netWorthSnapshots NetWorthSnapshot[]
 
   @@map("financial_entities")
@@ -174,6 +175,7 @@ model Account {
   piggyBank           PiggyBank?           @relation("PiggyLedger")
   investmentMovements InvestmentMovement[]
   paysCards           CreditCard[]         @relation("CardPaymentAccount")
+  debitCards          DebitCard[]
   debts               Debt[]
 
   @@index([entityId])
@@ -826,6 +828,26 @@ enum PatrimonySide {
 }
 
 /// Bens (imóvel, veículo) e obrigações que não estão em outros módulos. Valor informado com data.
+/// Cartão de débito: só identifica o plástico. Não tem limite, fatura nem conta-razão própria:
+/// a compra no débito é uma despesa direto na conta vinculada.
+model DebitCard {
+  id          String    @id @default(uuid()) @db.Uuid
+  entityId    String    @map("entity_id") @db.Uuid
+  accountId   String    @map("account_id") @db.Uuid
+  name        String
+  institution String?
+  brand       String?
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz
+
+  entity  FinancialEntity @relation(fields: [entityId], references: [id], onDelete: Restrict)
+  account Account         @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([entityId])
+  @@map("debit_cards")
+}
+
 model PatrimonyItem {
   id         String        @id @default(uuid()) @db.Uuid
   entityId   String        @map("entity_id") @db.Uuid

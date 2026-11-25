@@ -203,7 +203,8 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U hoink" --health-interval 5s --health-timeout 3s --health-retries 10
     env:
-      DATABASE_URL: postgresql://hoink:hoink@localhost:5432/hoink
+      # Pool maior: o dashboard faz 8 consultas em paralelo e o teste simula 20 usuários ao mesmo tempo.
+      DATABASE_URL: postgresql://hoink:hoink@localhost:5432/hoink?connection_limit=20
       LOG_LEVEL: warn
       MARKET_DATA_SYNC: "false"
       RECEIPT_LOOKUP: "false"

@@ -707,6 +707,39 @@ const invoiceStatusLabels = {
   'OVERDUE': 'Atrasada',
 };
 
+/// Cartão de débito: ligado a uma conta, sem limite nem fatura.
+class DebitCard {
+  DebitCard({
+    required this.id,
+    required this.entityId,
+    required this.name,
+    this.institution,
+    this.brand,
+    required this.accountId,
+    required this.accountName,
+    required this.archived,
+  });
+  final String id;
+  final String entityId;
+  final String name;
+  final String? institution;
+  final String? brand;
+  final String accountId;
+  final String accountName;
+  final bool archived;
+
+  factory DebitCard.fromJson(Json j) => DebitCard(
+    id: j['id'],
+    entityId: j['entityId'],
+    name: j['name'],
+    institution: j['institution'],
+    brand: j['brand'],
+    accountId: j['account']['id'],
+    accountName: j['account']['name'],
+    archived: j['archived'] == true,
+  );
+}
+
 class CreditCard {
   CreditCard({
     required this.id,

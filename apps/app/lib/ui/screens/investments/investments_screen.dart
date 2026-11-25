@@ -77,8 +77,6 @@ class InvestmentsScreen extends ConsumerWidget {
         ],
       ),
       children: [
-        const _MarketBar(),
-        const SizedBox(height: 16),
         ref
             .watch(investmentsProvider(entity.id))
             .when(
@@ -191,38 +189,6 @@ class InvestmentsScreen extends ConsumerWidget {
                 );
               },
             ),
-      ],
-    );
-  }
-}
-
-/// Situação dos índices (CDI, Selic, IPCA) vindos do Banco Central.
-class _MarketBar extends ConsumerWidget {
-  const _MarketBar();
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final rates = ref.watch(marketRatesProvider).value;
-    if (rates == null) return const SizedBox.shrink();
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final r in rates)
-          Pill(
-            r.lastDate == null
-                ? '${r.index}: sem dados'
-                : r.index == 'IPCA'
-                ? 'IPCA ${monthShort(r.lastDate!.substring(0, 7))}: ${_pct(r.ratePct ?? 0)}'
-                : '${r.index} ${_pct(r.annualPct ?? 0)} a.a. • ${formatBrDate(r.lastDate!)}',
-            icon: r.stale ? Symbols.schedule : Symbols.verified,
-            background: r.stale ? HoinkColors.tertiaryFixed : HoinkColors.surfaceLow,
-            foreground: r.stale ? HoinkColors.onTertiaryFixed : HoinkColors.pine,
-          ),
-        Text(
-          // Mostra de onde veio cada dado: se o Banco Central falhou, a reserva aparece aqui.
-          'Fonte: ${{for (final r in rates) marketSourceLabels[r.source ?? 'BCB'] ?? r.source}.join(', ')}',
-          style: HoinkText.bodySm.copyWith(color: HoinkColors.outline),
-        ),
       ],
     );
   }

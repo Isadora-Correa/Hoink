@@ -219,6 +219,15 @@ class HoinkRepository {
   );
   Future<void> archiveCard(String entityId, String id) => api.post('/entities/$entityId/cards/$id/archive');
 
+  Future<List<DebitCard>> debitCards(String entityId) async =>
+      ((await api.get('/entities/$entityId/debit-cards'))['data'] as List).map((c) => DebitCard.fromJson(c)).toList();
+  Future<DebitCard> saveDebitCard(String entityId, Map<String, Object?> body, {String? id}) async => DebitCard.fromJson(
+    (id == null
+        ? await api.post('/entities/$entityId/debit-cards', body)
+        : await api.patch('/entities/$entityId/debit-cards/$id', body))['data'],
+  );
+  Future<void> archiveDebitCard(String entityId, String id) => api.post('/entities/$entityId/debit-cards/$id/archive');
+
   /// Fatura do mês [month] (AAAA-MM). Sem mês: a fatura que recebe as compras de hoje.
   Future<Invoice> invoice(String entityId, String cardId, {String? month}) async =>
       Invoice.fromJson((await api.get('/entities/$entityId/cards/$cardId/invoice', query: {'month': month}))['data']);

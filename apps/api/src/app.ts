@@ -17,6 +17,7 @@ import { entitiesRouter } from './modules/entities/entities.routes';
 import { cardsRouter } from './modules/cards/cards.routes';
 import { cronRouter } from './modules/cron/cron.routes';
 import { contactsRouter, payablesRouter } from './modules/contacts/contacts.routes';
+import { debitCardsRouter } from './modules/debit-cards/debit-cards.routes';
 import { debtsRouter } from './modules/debts/debts.routes';
 import { gamificationRouter, marketRouter } from './modules/market/market.routes';
 import { piggyRouter } from './modules/piggy/piggy.routes';
@@ -104,6 +105,7 @@ export function createApp() {
   entity.use('/contacts', contactsRouter);
   entity.use('/payables', payablesRouter);
   entity.use('/cards', cardsRouter);
+  entity.use('/debit-cards', debitCardsRouter);
   entity.use('/debts', debtsRouter);
   entity.use('/planning', planningRouter);
   entity.use('/piggy-banks', piggyRouter);

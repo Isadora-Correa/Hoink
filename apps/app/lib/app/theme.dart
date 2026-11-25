@@ -223,6 +223,15 @@ ThemeData buildHoinkTheme() {
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(foregroundColor: HoinkColors.pine, textStyle: HoinkText.labelMd),
     ),
+    // Seleção sempre no verde da marca (o padrão do Material deixava o segmento escolhido cinza).
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: SegmentedButton.styleFrom(
+        selectedBackgroundColor: HoinkColors.pine,
+        selectedForegroundColor: HoinkColors.ivory,
+        foregroundColor: HoinkColors.onSurface,
+        side: const BorderSide(color: HoinkColors.stroke),
+      ),
+    ),
     dividerTheme: const DividerThemeData(color: HoinkColors.stroke, space: 1, thickness: 1),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,

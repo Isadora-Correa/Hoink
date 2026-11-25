@@ -482,6 +482,7 @@ class _PiggyCard extends ConsumerWidget {
               ),
               if (p.balanceCents > 0)
                 OutlinedButton.icon(
+                  key: Key('withdraw-${p.id}'),
                   style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
                   onPressed: () => showPiggyMove(context, ref, p, deposit: false),
                   icon: const Icon(Symbols.move_up, size: 18),
@@ -519,163 +520,159 @@ Future<void> showPiggyForm(
   await showDialog<void>(
     context: context,
     builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setState) => AlertDialog(
-        title: Text(piggy == null ? 'Novo cofrinho' : 'Editar cofrinho'),
-        content: SizedBox(
-          width: 460,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SegmentedButton<String>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: 'WISH', label: Text('Desejo'), icon: Icon(Symbols.favorite, size: 16)),
-                    ButtonSegment(value: 'GOAL', label: Text('Meta'), icon: Icon(Symbols.flag, size: 16)),
-                    ButtonSegment(value: 'RESERVE', label: Text('Reserva'), icon: Icon(Symbols.shield, size: 16)),
-                  ],
-                  selected: {k},
-                  onSelectionChanged: (s) => setState(() => k = s.first),
+      builder: (ctx, setState) => FormDialog(
+        title: piggy == null ? 'Novo cofrinho' : 'Editar cofrinho',
+        saveKey: const Key('save-piggy'),
+        onSave: () async {
+          final goalCents = goal.text.trim().isEmpty ? null : parseBRLToCents(goal.text);
+          final rateBps = rate.text.trim().isEmpty
+              ? 0
+              : ((double.tryParse(rate.text.replaceAll(',', '.')) ?? -1) * 100).round();
+          if (name.text.trim().isEmpty) return showError(ctx, 'Dê um nome ao cofrinho');
+          if (k == 'WISH' && (goalCents == null || goalCents <= 0)) return showError(ctx, 'Informe quanto custa');
+          if (rateBps < 0) return showError(ctx, 'Taxa inválida');
+          final body = {
+            'kind': k,
+            'name': name.text.trim(),
+            'goalCents': goalCents,
+            'link': k == 'WISH' && link.text.trim().isNotEmpty ? link.text.trim() : null,
+            'priority': priority,
+            'icon': icon,
+            'targetDate': target == null ? null : isoDate(target!),
+            'yieldKind': yieldKind,
+            'yieldRateBps': rateBps,
+            'institution': institution.text.trim().isEmpty ? null : institution.text.trim(),
+          };
+          try {
+            final r = await ref.read(repositoryProvider).savePiggy(entityId, body, id: piggy?.id);
+            ref.read(dataVersionProvider.notifier).bump();
+            if (!ctx.mounted) return;
+            Navigator.pop(ctx);
+            if (context.mounted) {
+              showSuccess(context, piggy == null ? 'Cofrinho criado' : 'Cofrinho atualizado');
+              await celebrate(context, r.unlocked);
+            }
+          } catch (e) {
+            if (ctx.mounted) showError(ctx, e);
+          }
+        },
+        children: [
+          SegmentedButton<String>(
+            showSelectedIcon: false,
+            // No celular os rótulos não cabem com ícone: fica só o texto.
+            segments: [
+              for (final (v, label, ic) in const [
+                ('WISH', 'Desejo', Symbols.favorite),
+                ('GOAL', 'Meta', Symbols.flag),
+                ('RESERVE', 'Reserva', Symbols.shield),
+              ])
+                ButtonSegment(
+                  value: v,
+                  label: Text(label, maxLines: 1, softWrap: false),
+                  icon: MediaQuery.sizeOf(ctx).width < 420 ? null : Icon(ic, size: 16),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const Key('piggy-name'),
-                  controller: name,
-                  decoration: InputDecoration(
-                    labelText: k == 'WISH' ? 'O que você quer comprar?' : 'Nome do cofrinho',
-                    hintText: k == 'WISH' ? 'Ex.: PS5 para o namorado' : 'Ex.: Viagem, carro, casa',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                MoneyField(
-                  controller: goal,
-                  label: k == 'WISH' ? 'Quanto custa?' : 'Meta (opcional)',
-                  fieldKey: const Key('piggy-goal'),
-                ),
-                if (k == 'WISH') ...[
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: link,
-                    keyboardType: TextInputType.url,
-                    decoration: const InputDecoration(labelText: 'Link do produto (opcional)', hintText: 'https://...'),
-                  ),
-                  const SizedBox(height: 12),
-                  Text('Prioridade', style: HoinkText.labelMd),
-                  Slider(
-                    value: (6 - priority).toDouble(),
-                    min: 1,
-                    max: 5,
-                    divisions: 4,
-                    label: priority == 1 ? 'Muito alta' : (priority >= 4 ? 'Baixa' : 'Média'),
-                    onChanged: (v) => setState(() => priority = 6 - v.round()),
-                  ),
-                ],
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  icon: const Icon(Symbols.event, size: 18),
-                  label: Text(target == null ? 'Data-alvo (opcional)' : 'Quero até ${formatBrDate(isoDate(target!))}'),
-                  onPressed: () async {
-                    final d = await showDatePicker(
-                      context: ctx,
-                      initialDate: target ?? DateTime.now().add(const Duration(days: 180)),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime(2100),
-                    );
-                    if (d != null) setState(() => target = d);
-                  },
-                ),
-                const SizedBox(height: 12),
-                Text('Ícone', style: HoinkText.labelMd),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final e in piggyIcons.entries)
-                      ChoiceChip(
-                        label: Icon(e.value, size: 18),
-                        selected: icon == e.key,
-                        onSelected: (_) => setState(() => icon = e.key),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: yieldKind,
-                  decoration: const InputDecoration(labelText: 'Onde o dinheiro rende'),
-                  items: const [
-                    DropdownMenuItem(value: 'NONE', child: Text('Não rende')),
-                    DropdownMenuItem(value: 'CDI_PERCENT', child: Text('% do CDI')),
-                    DropdownMenuItem(value: 'SELIC_PERCENT', child: Text('% da Selic')),
-                    DropdownMenuItem(value: 'PREFIXED', child: Text('Prefixado (% ao ano)')),
-                    DropdownMenuItem(value: 'MANUAL', child: Text('Informo o saldo do banco')),
-                  ],
-                  onChanged: (v) => setState(() => yieldKind = v!),
-                ),
-                if (yieldKind == 'CDI_PERCENT' || yieldKind == 'SELIC_PERCENT' || yieldKind == 'PREFIXED') ...[
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: rate,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: yieldKind == 'PREFIXED' ? 'Taxa ao ano' : 'Percentual do índice',
-                      suffixText: yieldKind == 'PREFIXED' ? '% a.a.' : '%',
-                      hintText: yieldKind == 'PREFIXED' ? '12' : '115',
-                      helperText: 'Taxa contratada no banco — não é garantia de rendimento futuro.',
-                    ),
-                  ),
-                ],
-                if (yieldKind != 'NONE') ...[
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: institution,
-                    decoration: const InputDecoration(labelText: 'Banco (opcional)'),
-                  ),
-                ],
-              ],
+            ],
+            selected: {k},
+            onSelectionChanged: (s) => setState(() => k = s.first),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('piggy-name'),
+            controller: name,
+            decoration: InputDecoration(
+              labelText: k == 'WISH' ? 'O que você quer comprar?' : 'Nome do cofrinho',
+              hintText: k == 'WISH' ? 'Ex.: PS5 para o namorado' : 'Ex.: Viagem, carro, casa',
             ),
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton(
-            key: const Key('save-piggy'),
-            onPressed: () async {
-              final goalCents = goal.text.trim().isEmpty ? null : parseBRLToCents(goal.text);
-              final rateBps = rate.text.trim().isEmpty
-                  ? 0
-                  : ((double.tryParse(rate.text.replaceAll(',', '.')) ?? -1) * 100).round();
-              if (name.text.trim().isEmpty) return showError(ctx, 'Dê um nome ao cofrinho');
-              if (k == 'WISH' && (goalCents == null || goalCents <= 0)) return showError(ctx, 'Informe quanto custa');
-              if (rateBps < 0) return showError(ctx, 'Taxa inválida');
-              final body = {
-                'kind': k,
-                'name': name.text.trim(),
-                'goalCents': goalCents,
-                'link': k == 'WISH' && link.text.trim().isNotEmpty ? link.text.trim() : null,
-                'priority': priority,
-                'icon': icon,
-                'targetDate': target == null ? null : isoDate(target!),
-                'yieldKind': yieldKind,
-                'yieldRateBps': rateBps,
-                'institution': institution.text.trim().isEmpty ? null : institution.text.trim(),
-              };
-              try {
-                final r = await ref.read(repositoryProvider).savePiggy(entityId, body, id: piggy?.id);
-                ref.read(dataVersionProvider.notifier).bump();
-                if (!ctx.mounted) return;
-                Navigator.pop(ctx);
-                if (context.mounted) {
-                  showSuccess(context, piggy == null ? 'Cofrinho criado' : 'Cofrinho atualizado');
-                  await celebrate(context, r.unlocked);
-                }
-              } catch (e) {
-                if (ctx.mounted) showError(ctx, e);
-              }
-            },
-            child: const Text('Salvar'),
+          const SizedBox(height: 12),
+          MoneyField(
+            controller: goal,
+            label: k == 'WISH' ? 'Quanto custa?' : 'Meta (opcional)',
+            fieldKey: const Key('piggy-goal'),
           ),
+          if (k == 'WISH') ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: link,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(labelText: 'Link do produto (opcional)', hintText: 'https://...'),
+            ),
+            const SizedBox(height: 12),
+            Text('Prioridade', style: HoinkText.labelMd),
+            Slider(
+              value: (6 - priority).toDouble(),
+              min: 1,
+              max: 5,
+              divisions: 4,
+              label: priority == 1 ? 'Muito alta' : (priority >= 4 ? 'Baixa' : 'Média'),
+              onChanged: (v) => setState(() => priority = 6 - v.round()),
+            ),
+          ],
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            icon: const Icon(Symbols.event, size: 18),
+            label: Text(target == null ? 'Data-alvo (opcional)' : 'Quero até ${formatBrDate(isoDate(target!))}'),
+            onPressed: () async {
+              final d = await showDatePicker(
+                context: ctx,
+                initialDate: target ?? DateTime.now().add(const Duration(days: 180)),
+                firstDate: DateTime.now(),
+                lastDate: DateTime(2100),
+              );
+              if (d != null) setState(() => target = d);
+            },
+          ),
+          const SizedBox(height: 12),
+          Text('Ícone', style: HoinkText.labelMd),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              for (final e in piggyIcons.entries)
+                ChoiceChip(
+                  showCheckmark: false,
+                  selectedColor: HoinkColors.pine,
+                  label: Icon(e.value, size: 18, color: icon == e.key ? HoinkColors.ivory : HoinkColors.pine),
+                  selected: icon == e.key,
+                  onSelected: (_) => setState(() => icon = e.key),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: yieldKind,
+            decoration: const InputDecoration(labelText: 'Onde o dinheiro rende'),
+            items: const [
+              DropdownMenuItem(value: 'NONE', child: Text('Não rende')),
+              DropdownMenuItem(value: 'CDI_PERCENT', child: Text('% do CDI')),
+              DropdownMenuItem(value: 'SELIC_PERCENT', child: Text('% da Selic')),
+              DropdownMenuItem(value: 'PREFIXED', child: Text('Prefixado (% ao ano)')),
+              DropdownMenuItem(value: 'MANUAL', child: Text('Informo o saldo do banco')),
+            ],
+            onChanged: (v) => setState(() => yieldKind = v!),
+          ),
+          if (yieldKind == 'CDI_PERCENT' || yieldKind == 'SELIC_PERCENT' || yieldKind == 'PREFIXED') ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: rate,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: yieldKind == 'PREFIXED' ? 'Taxa ao ano' : 'Percentual do índice',
+                suffixText: yieldKind == 'PREFIXED' ? '% a.a.' : '%',
+                hintText: yieldKind == 'PREFIXED' ? '12' : '115',
+                helperText: 'Taxa contratada no banco — não é garantia de rendimento futuro.',
+              ),
+            ),
+          ],
+          if (yieldKind != 'NONE') ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: institution,
+              decoration: const InputDecoration(labelText: 'Banco (opcional)'),
+            ),
+          ],
         ],
       ),
     ),
@@ -689,83 +686,80 @@ Future<void> showPiggyMove(BuildContext context, WidgetRef ref, PiggyBank p, {re
   final amount = TextEditingController();
   var accountId = accounts.firstOrNull?.id;
   var date = DateTime.now();
-  final quick = deposit ? [5000, 10000, 20000, 50000] : <int>[];
+  // Atalhos de valor. No resgate, "Resgatar tudo" preenche o saldo inteiro do cofrinho.
+  final quick = <(String, int)>[
+    if (deposit) ...[
+      for (final c in [5000, 10000, 20000, 50000]) (formatBRL(c), c),
+    ],
+    if (deposit && p.missingCents != null && p.missingCents! > 0) ('Completar a meta', p.missingCents!),
+    if (!deposit && p.balanceCents > 0) ('Resgatar tudo (${formatBRL(p.balanceCents)})', p.balanceCents),
+  ];
 
   await showDialog<void>(
     context: context,
     builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setState) => AlertDialog(
-        title: Text(deposit ? 'Guardar em ${p.name}' : 'Resgatar de ${p.name}'),
-        content: SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (!deposit) Text('Saldo do cofrinho: ${formatBRL(p.balanceCents)}', style: HoinkText.bodyMd),
-              if (deposit && p.missingCents != null && p.missingCents! > 0)
-                Text('Faltam ${formatBRL(p.missingCents!)} para a meta', style: HoinkText.bodyMd),
-              const SizedBox(height: 12),
-              MoneyField(controller: amount, label: 'Valor', fieldKey: const Key('piggy-amount')),
-              if (quick.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  children: [
-                    for (final c in quick)
-                      ActionChip(
-                        label: Text(formatBRL(c)),
-                        onPressed: () => setState(() => amount.text = formatAmount(c)),
-                      ),
-                  ],
-                ),
+      builder: (ctx, setState) => FormDialog(
+        title: deposit ? 'Guardar em ${p.name}' : 'Resgatar de ${p.name}',
+        saveKey: const Key('confirm-piggy-move'),
+        saveLabel: deposit ? 'Guardar' : 'Resgatar',
+        onSave: () async {
+          final cents = parseBRLToCents(amount.text);
+          if (accountId == null || cents == null || cents <= 0) return showError(ctx, 'Informe o valor e a conta');
+          try {
+            final r = await ref.read(repositoryProvider).piggyAction(
+              p.entityId,
+              p.id,
+              deposit ? 'deposit' : 'withdraw',
+              {'accountId': accountId, 'amountCents': cents, 'date': isoDate(date)},
+            );
+            ref.read(dataVersionProvider.notifier).bump();
+            if (!ctx.mounted) return;
+            Navigator.pop(ctx);
+            if (context.mounted) {
+              showSuccess(context, deposit ? 'Guardado! 🐷' : 'Resgate registrado');
+              await celebrate(context, r.unlocked);
+            }
+          } catch (e) {
+            if (ctx.mounted) showError(ctx, e);
+          }
+        },
+        children: [
+          if (!deposit) Text('Saldo do cofrinho: ${formatBRL(p.balanceCents)}', style: HoinkText.bodyMd),
+          if (deposit && p.missingCents != null && p.missingCents! > 0)
+            Text('Faltam ${formatBRL(p.missingCents!)} para a meta', style: HoinkText.bodyMd),
+          const SizedBox(height: 12),
+          MoneyField(controller: amount, label: 'Valor', fieldKey: const Key('piggy-amount')),
+          if (quick.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final (label, c) in quick)
+                  ActionChip(
+                    key: Key('piggy-quick-$c'),
+                    label: Text(label),
+                    onPressed: () => setState(() => amount.text = formatAmount(c)),
+                  ),
               ],
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: accountId,
-                decoration: InputDecoration(labelText: deposit ? 'Tirar da conta' : 'Mandar para a conta'),
-                items: [
-                  for (final a in accounts)
-                    DropdownMenuItem(
-                      value: a.id,
-                      child: Text('${a.name} (${formatBRL(a.balanceCents)})', overflow: TextOverflow.ellipsis),
-                    ),
-                ],
-                onChanged: (v) => setState(() => accountId = v),
-              ),
-              const SizedBox(height: 12),
-              DateField(label: 'Data', value: date, onChanged: (d) => setState(() => date = d)),
+            ),
+          ],
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            initialValue: accountId,
+            decoration: InputDecoration(labelText: deposit ? 'Tirar da conta' : 'Mandar para a conta'),
+            items: [
+              for (final a in accounts)
+                DropdownMenuItem(
+                  value: a.id,
+                  child: Text('${a.name} (${formatBRL(a.balanceCents)})', overflow: TextOverflow.ellipsis),
+                ),
             ],
+            onChanged: (v) => setState(() => accountId = v),
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton(
-            key: const Key('confirm-piggy-move'),
-            onPressed: () async {
-              final cents = parseBRLToCents(amount.text);
-              if (accountId == null || cents == null || cents <= 0) return showError(ctx, 'Informe o valor e a conta');
-              try {
-                final r = await ref.read(repositoryProvider).piggyAction(
-                  p.entityId,
-                  p.id,
-                  deposit ? 'deposit' : 'withdraw',
-                  {'accountId': accountId, 'amountCents': cents, 'date': isoDate(date)},
-                );
-                ref.read(dataVersionProvider.notifier).bump();
-                if (!ctx.mounted) return;
-                Navigator.pop(ctx);
-                if (context.mounted) {
-                  showSuccess(context, deposit ? 'Guardado! 🐷' : 'Resgate registrado');
-                  await celebrate(context, r.unlocked);
-                }
-              } catch (e) {
-                if (ctx.mounted) showError(ctx, e);
-              }
-            },
-            child: Text(deposit ? 'Guardar' : 'Resgatar'),
-          ),
+          const SizedBox(height: 12),
+          DateField(label: 'Data', value: date, onChanged: (d) => setState(() => date = d)),
         ],
       ),
     ),

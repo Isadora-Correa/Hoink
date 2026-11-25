@@ -249,6 +249,15 @@ export const cardUpdateSchema = z.object({
   color: z.string().max(20).nullable().optional(),
 });
 
+// Cartão de débito: sem limite nem fatura; a compra sai direto da conta vinculada.
+export const debitCardCreateSchema = z.object({
+  name: z.string().trim().min(1, 'Informe o nome do cartão').max(80),
+  institution: z.string().trim().max(80).nullable().optional(),
+  brand: z.string().trim().max(30).nullable().optional(),
+  accountId: z.string().uuid('Selecione a conta vinculada'),
+});
+export const debitCardUpdateSchema = debitCardCreateSchema.partial();
+
 export const cardPurchaseSchema = z.object({
   description: z.string().trim().min(1, 'Informe a descrição').max(160),
   totalCents: centsSchema.refine((v) => v > 0, 'Valor deve ser maior que zero'),

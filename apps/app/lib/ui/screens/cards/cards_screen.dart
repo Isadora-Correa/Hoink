@@ -17,6 +17,11 @@ final cardsProvider = FutureProvider.family<List<CreditCard>, String>((ref, enti
   return ref.read(repositoryProvider).cards(entityId);
 });
 
+final debitCardsProvider = FutureProvider.family<List<DebitCard>, String>((ref, entityId) async {
+  ref.watch(dataVersionProvider);
+  return ref.read(repositoryProvider).debitCards(entityId);
+});
+
 final cardProvider = FutureProvider.family<CreditCard, ({String entityId, String id})>((ref, a) async {
   ref.watch(dataVersionProvider);
   return ref.read(repositoryProvider).card(a.entityId, a.id);
@@ -49,7 +54,7 @@ class InvoicePill extends StatelessWidget {
   );
 }
 
-/// Cartões de crédito: limite, fatura atual e faturas a pagar.
+/// Cartões: crédito (limite, fatura atual e faturas a pagar) e débito (ligado a uma conta).
 class CardsScreen extends ConsumerWidget {
   const CardsScreen({super.key});
 
@@ -58,8 +63,8 @@ class CardsScreen extends ConsumerWidget {
     final shown = entitiesInScope(ref);
     final single = shown.length == 1 ? shown.first : null;
     return ModulePage(
-      title: 'Cartões de crédito',
-      subtitle: 'Compras e parcelas entram como despesa uma vez só; pagar a fatura é uma transferência da sua conta.',
+      title: 'Cartões',
+      subtitle: 'No crédito, compras e parcelas entram como despesa uma vez só e pagar a fatura é uma transferência. No débito, a compra sai direto da conta.',
       action: single != null && single.canWrite
           ? FilledButton.icon(
               key: const Key('new-card'),
@@ -95,48 +100,143 @@ class _EntityCards extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ref
-        .watch(cardsProvider(entity.id))
-        .when(
-          loading: () => const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          error: (e, _) => ErrorState(e, onRetry: () => ref.invalidate(cardsProvider(entity.id))),
-          data: (cards) {
-            if (cards.isEmpty) {
-              return HoinkCard(
-                child: EmptyState(
-                  title: 'Nenhum cartão cadastrado',
-                  message: 'Cadastre o cartão com limite, fechamento e vencimento para acompanhar faturas e parcelas.',
-                  action: entity.canWrite
-                      ? FilledButton(
-                          onPressed: () => showCardForm(context, ref, entity.id),
-                          child: const Text('Cadastrar cartão'),
-                        )
-                      : null,
-                ),
-              );
-            }
-            return LayoutBuilder(
-              builder: (context, c) {
-                final cols = c.maxWidth >= 900 ? 3 : (c.maxWidth >= 560 ? 2 : 1);
-                final w = (c.maxWidth - (cols - 1) * 16) / cols;
-                return Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
-                  children: [
-                    for (final card in cards)
-                      SizedBox(
-                        width: w,
-                        child: _CardTile(card: card),
-                      ),
-                  ],
-                );
-              },
-            );
-          },
+    final credit = ref.watch(cardsProvider(entity.id));
+    final debit = ref.watch(debitCardsProvider(entity.id));
+    if (credit.isLoading || debit.isLoading) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (credit.hasError) {
+      return ErrorState(credit.error!, onRetry: () => ref.invalidate(cardsProvider(entity.id)));
+    }
+    final cards = credit.value ?? const <CreditCard>[];
+    final debits = debit.value ?? const <DebitCard>[];
+    if (cards.isEmpty && debits.isEmpty) {
+      return HoinkCard(
+        child: EmptyState(
+          title: 'Nenhum cartão cadastrado',
+          message: 'Cadastre seus cartões de crédito (com limite e fatura) e de débito (ligados a uma conta).',
+          action: entity.canWrite
+              ? FilledButton(
+                  onPressed: () => showCardForm(context, ref, entity.id),
+                  child: const Text('Cadastrar cartão'),
+                )
+              : null,
+        ),
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, c) {
+        final cols = c.maxWidth >= 900 ? 3 : (c.maxWidth >= 560 ? 2 : 1);
+        final w = (c.maxWidth - (cols - 1) * 16) / cols;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (cards.isNotEmpty) ...[
+              if (debits.isNotEmpty) ...[Text('Crédito', style: HoinkText.headlineSm), const SizedBox(height: 12)],
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  for (final card in cards)
+                    SizedBox(
+                      width: w,
+                      child: _CardTile(card: card),
+                    ),
+                ],
+              ),
+            ],
+            if (debits.isNotEmpty) ...[
+              if (cards.isNotEmpty) const SizedBox(height: 24),
+              if (cards.isNotEmpty) ...[Text('Débito', style: HoinkText.headlineSm), const SizedBox(height: 12)],
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  for (final d in debits)
+                    SizedBox(
+                      width: w,
+                      child: _DebitTile(card: d, canWrite: entity.canWrite),
+                    ),
+                ],
+              ),
+            ],
+          ],
         );
+      },
+    );
+  }
+}
+
+/// Cartão de débito: banco, bandeira e a conta de onde as compras saem.
+class _DebitTile extends ConsumerWidget {
+  const _DebitTile({required this.card, required this.canWrite});
+  final DebitCard card;
+  final bool canWrite;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final details = [card.institution, card.brand].whereType<String>().join(' • ');
+    return HoinkCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const IconBadge(Symbols.account_balance),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(card.name, style: HoinkText.labelMd, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if (details.isNotEmpty)
+                      Text(details, style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              if (canWrite)
+                PopupMenuButton<String>(
+                  tooltip: 'Opções',
+                  onSelected: (v) async {
+                    if (v == 'edit') {
+                      await showCardForm(context, ref, card.entityId, debit: card);
+                    } else {
+                      await runAction(
+                        context,
+                        ref,
+                        () => ref.read(repositoryProvider).archiveDebitCard(card.entityId, card.id),
+                        'Cartão arquivado',
+                      );
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'edit', child: Text('Editar')),
+                    PopupMenuItem(value: 'archive', child: Text('Arquivar')),
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Compras saem de: ${card.accountName}',
+            style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant),
+          ),
+          if (canWrite) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () =>
+                  context.push('/lancamentos/novo?tipo=EXPENSE&ambiente=${card.entityId}&conta=${card.accountId}'),
+              icon: const Icon(Symbols.add_shopping_cart, size: 18),
+              label: const Text('Lançar compra'),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 
@@ -254,121 +354,204 @@ class _CardTile extends StatelessWidget {
   }
 }
 
-/// Cadastro/edição do cartão. Fechamento e vencimento só são definidos no cadastro.
-Future<void> showCardForm(BuildContext context, WidgetRef ref, String entityId, {CreditCard? card}) async {
+/// Bancos mais usados no Brasil (lista do campo "Banco"). "Outro" libera o texto livre.
+const cardBanks = [
+  'Nubank',
+  'Itaú',
+  'Bradesco',
+  'Banco do Brasil',
+  'Caixa',
+  'Santander',
+  'Inter',
+  'C6 Bank',
+  'Mercado Pago',
+  'PicPay',
+  'PagBank',
+  'BTG Pactual',
+  'XP',
+  'Neon',
+  'Next',
+  'Sicoob',
+  'Sicredi',
+  'Banco Pan',
+  'Safra',
+  'Original',
+];
+const cardBrands = ['Visa', 'Mastercard', 'Elo', 'American Express', 'Hipercard'];
+const _otherBank = 'Outro';
+
+/// Cadastro/edição de cartão. Crédito tem limite, fechamento, vencimento e fatura;
+/// débito só fica ligado a uma conta (a compra sai direto dela). Fechamento e vencimento só no cadastro.
+Future<void> showCardForm(
+  BuildContext context,
+  WidgetRef ref,
+  String entityId, {
+  CreditCard? card,
+  DebitCard? debit,
+}) async {
   final accounts = (await ref.read(accountsProvider(entityId).future)).where((a) => !a.archived).toList();
   if (!context.mounted) return;
-  final name = TextEditingController(text: card?.name);
-  final institution = TextEditingController(text: card?.institution);
-  final brand = TextEditingController(text: card?.brand);
+  final editing = card != null || debit != null;
+  var isDebit = debit != null;
+  final name = TextEditingController(text: card?.name ?? debit?.name);
+  final currentBank = card?.institution ?? debit?.institution;
+  var bank = currentBank == null ? null : (cardBanks.contains(currentBank) ? currentBank : _otherBank);
+  final otherBank = TextEditingController(text: bank == _otherBank ? currentBank : '');
+  final currentBrand = card?.brand ?? debit?.brand;
+  var brand = cardBrands.contains(currentBrand) ? currentBrand : null;
   final limit = TextEditingController(text: card == null ? '' : formatAmount(card.limitCents));
   var closing = card?.closingDay ?? 3;
   var due = card?.dueDay ?? 10;
   var paymentAccountId = card?.paymentAccountId ?? accounts.firstOrNull?.id;
+  var linkedAccountId = debit?.accountId ?? accounts.firstOrNull?.id;
   final days = [for (var d = 1; d <= 31; d++) d];
 
   await showDialog<void>(
     context: context,
     builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setState) => AlertDialog(
-        title: Text(card == null ? 'Novo cartão' : 'Editar cartão'),
-        content: SizedBox(
-          width: 420,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  key: const Key('card-name'),
-                  controller: name,
-                  decoration: const InputDecoration(labelText: 'Nome do cartão', hintText: 'Ex.: Nubank Roxinho'),
-                ),
+      builder: (ctx, setState) {
+        Widget dayPicker(String label, int value, ValueChanged<int> onChanged) => DropdownButtonFormField<int>(
+          initialValue: value,
+          decoration: InputDecoration(labelText: label),
+          items: [for (final d in days) DropdownMenuItem(value: d, child: Text('$d'))],
+          onChanged: (v) => setState(() => onChanged(v!)),
+        );
+        final accountItems = [
+          for (final a in accounts)
+            DropdownMenuItem(
+              value: a.id,
+              child: Text(a.name, overflow: TextOverflow.ellipsis),
+            ),
+        ];
+        return FormDialog(
+          title: !editing ? 'Novo cartão' : (isDebit ? 'Editar cartão de débito' : 'Editar cartão de crédito'),
+          saveKey: const Key('save-card'),
+          onSave: () async {
+            final institution = bank == _otherBank ? otherBank.text.trim() : (bank ?? '');
+            final common = <String, Object?>{
+              'name': name.text.trim(),
+              'institution': institution.isEmpty ? null : institution,
+              'brand': brand,
+            };
+            if (name.text.trim().isEmpty) return showError(ctx, 'Informe o nome do cartão');
+            final repo = ref.read(repositoryProvider);
+            final bool ok;
+            if (isDebit) {
+              if (linkedAccountId == null) return showError(ctx, 'Escolha a conta ligada ao cartão');
+              ok = await runAction(
+                ctx,
+                ref,
+                () => repo.saveDebitCard(entityId, {...common, 'accountId': linkedAccountId}, id: debit?.id),
+                editing ? 'Cartão atualizado' : 'Cartão de débito cadastrado',
+              );
+            } else {
+              final cents = parseBRLToCents(limit.text);
+              if (cents == null || cents <= 0) return showError(ctx, 'Informe o limite do cartão de crédito');
+              ok = await runAction(
+                ctx,
+                ref,
+                () => repo.saveCard(entityId, {
+                  ...common,
+                  'limitCents': cents,
+                  'paymentAccountId': paymentAccountId,
+                  if (card == null) 'closingDay': closing,
+                  if (card == null) 'dueDay': due,
+                }, id: card?.id),
+                editing ? 'Cartão atualizado' : 'Cartão de crédito cadastrado',
+              );
+            }
+            if (ok && ctx.mounted) Navigator.pop(ctx);
+          },
+          children: [
+            if (!editing) ...[
+              SegmentedButton<bool>(
+                key: const Key('card-kind'),
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: false, label: Text('Crédito'), icon: Icon(Symbols.credit_card, size: 16)),
+                  ButtonSegment(value: true, label: Text('Débito'), icon: Icon(Symbols.account_balance, size: 16)),
+                ],
+                selected: {isDebit},
+                onSelectionChanged: (s) => setState(() => isDebit = s.first),
+              ),
+              const SizedBox(height: 16),
+            ],
+            TextField(
+              key: const Key('card-name'),
+              controller: name,
+              decoration: InputDecoration(
+                labelText: 'Nome do cartão',
+                hintText: isDebit ? 'Ex.: Débito Itaú' : 'Ex.: Nubank Roxinho',
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              key: const Key('card-bank'),
+              isExpanded: true,
+              initialValue: bank,
+              decoration: const InputDecoration(labelText: 'Banco'),
+              items: [
+                for (final b in [...cardBanks, _otherBank]) DropdownMenuItem(value: b, child: Text(b)),
+              ],
+              onChanged: (v) => setState(() => bank = v),
+            ),
+            if (bank == _otherBank) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: otherBank,
+                decoration: const InputDecoration(labelText: 'Nome do banco'),
+              ),
+            ],
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String?>(
+              isExpanded: true,
+              initialValue: brand,
+              decoration: const InputDecoration(labelText: 'Bandeira (opcional)'),
+              items: [
+                const DropdownMenuItem<String?>(value: null, child: Text('Não informar')),
+                for (final b in cardBrands) DropdownMenuItem<String?>(value: b, child: Text(b)),
+              ],
+              onChanged: (v) => setState(() => brand = v),
+            ),
+            const SizedBox(height: 12),
+            if (isDebit) ...[
+              DropdownButtonFormField<String>(
+                key: const Key('debit-account'),
+                isExpanded: true,
+                initialValue: linkedAccountId,
+                decoration: const InputDecoration(labelText: 'Conta ligada ao cartão'),
+                items: accountItems,
+                onChanged: (v) => setState(() => linkedAccountId = v),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Cartão de débito não tem limite nem fatura: cada compra sai direto da conta ligada a ele.',
+                style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant),
+              ),
+            ] else ...[
+              MoneyField(controller: limit, label: 'Limite total', fieldKey: const Key('card-limit')),
+              if (card == null) ...[
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: institution,
-                        decoration: const InputDecoration(labelText: 'Banco'),
-                      ),
-                    ),
+                    Expanded(child: dayPicker('Dia do fechamento', closing, (v) => closing = v)),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: brand,
-                        decoration: const InputDecoration(labelText: 'Bandeira'),
-                      ),
-                    ),
+                    Expanded(child: dayPicker('Dia do vencimento', due, (v) => due = v)),
                   ],
                 ),
-                const SizedBox(height: 12),
-                MoneyField(controller: limit, label: 'Limite total', fieldKey: const Key('card-limit')),
-                if (card == null) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<int>(
-                          initialValue: closing,
-                          decoration: const InputDecoration(labelText: 'Dia do fechamento'),
-                          items: [for (final d in days) DropdownMenuItem(value: d, child: Text('$d'))],
-                          onChanged: (v) => setState(() => closing = v!),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<int>(
-                          initialValue: due,
-                          decoration: const InputDecoration(labelText: 'Dia do vencimento'),
-                          items: [for (final d in days) DropdownMenuItem(value: d, child: Text('$d'))],
-                          onChanged: (v) => setState(() => due = v!),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: paymentAccountId,
-                  decoration: const InputDecoration(labelText: 'Conta que paga a fatura'),
-                  items: [for (final a in accounts) DropdownMenuItem(value: a.id, child: Text(a.name))],
-                  onChanged: (v) => setState(() => paymentAccountId = v),
-                ),
               ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton(
-            key: const Key('save-card'),
-            onPressed: () async {
-              final cents = parseBRLToCents(limit.text);
-              if (name.text.trim().isEmpty || cents == null || cents < 0) {
-                showError(ctx, 'Informe o nome e o limite do cartão');
-                return;
-              }
-              final body = <String, Object?>{
-                'name': name.text.trim(),
-                'institution': institution.text.trim().isEmpty ? null : institution.text.trim(),
-                'brand': brand.text.trim().isEmpty ? null : brand.text.trim(),
-                'limitCents': cents,
-                'paymentAccountId': paymentAccountId,
-                if (card == null) 'closingDay': closing,
-                if (card == null) 'dueDay': due,
-              };
-              final ok = await runAction(
-                ctx,
-                ref,
-                () => ref.read(repositoryProvider).saveCard(entityId, body, id: card?.id),
-                card == null ? 'Cartão cadastrado' : 'Cartão atualizado',
-              );
-              if (ok && ctx.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Salvar'),
-          ),
-        ],
-      ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                initialValue: paymentAccountId,
+                decoration: const InputDecoration(labelText: 'Conta que paga a fatura'),
+                items: accountItems,
+                onChanged: (v) => setState(() => paymentAccountId = v),
+              ),
+            ],
+          ],
+        );
+      },
     ),
   );
 }

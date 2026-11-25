@@ -36,7 +36,7 @@ Future<void> pumpApp(
 
 /// Abre o formulário pelo botão "Novo Lançamento", que só existe na aba de Lançamentos.
 Future<void> openNewTransaction(WidgetTester tester) async {
-  await tester.tap(find.widgetWithText(InkWell, 'Lançamentos').first);
+  await tester.tap(find.byKey(const Key('nav-/lancamentos')));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Novo Lançamento'));
 }
@@ -329,6 +329,56 @@ void main() {
     expect(repo.piggyActions.single.$2, containsPair('amountCents', 30000));
     expect(find.text('Conquista desbloqueada!'), findsOneWidget);
     expect(find.text('Metade lá!'), findsOneWidget);
+  });
+
+  testWidgets('cofrinho: "Resgatar tudo" preenche o saldo inteiro', (tester) async {
+    final repo = FakeRepository();
+    await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
+    await tester.tap(find.text('Cofrinhos'));
+    await tester.pumpAndSettle();
+    final piggy = (await repo.piggyBanks('e1')).first;
+    await tester.tap(find.byKey(Key('withdraw-${piggy.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Resgatar tudo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-piggy-move')));
+    await tester.pumpAndSettle();
+    expect(repo.piggyActions.single.$1, 'withdraw');
+    expect(repo.piggyActions.single.$2, containsPair('amountCents', piggy.balanceCents));
+  });
+
+  testWidgets('cartão de débito: sem limite, ligado a uma conta', (tester) async {
+    final repo = FakeRepository();
+    await pumpApp(tester, repo: repo, token: 'token-123456789012345678901');
+    await tester.tap(find.text('Cartões'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cadastrar cartão').first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('card-limit')), findsOneWidget);
+    await tester.tap(find.text('Débito'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('card-limit')), findsNothing);
+    expect(find.byKey(const Key('debit-account')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('card-name')), 'Mercado Livre Débito');
+    await tester.tap(find.byKey(const Key('save-card')));
+    await tester.pumpAndSettle();
+    expect(repo.savedDebitCards.single, containsPair('name', 'Mercado Livre Débito'));
+    expect(repo.savedDebitCards.single['accountId'], isNotNull);
+    expect(repo.savedDebitCards.single.containsKey('limitCents'), isFalse);
+  });
+
+  testWidgets('lançamentos: filtros ficam num botão só', (tester) async {
+    await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901');
+    await tester.tap(find.byKey(const Key('nav-/lancamentos')));
+    await tester.pumpAndSettle();
+    expect(find.text('Todos os status'), findsNothing);
+    await tester.tap(find.byKey(const Key('txn-filters')));
+    await tester.pumpAndSettle();
+    expect(find.text('Todos os status'), findsOneWidget);
+    await tester.tap(find.text('Despesas').last);
+    await tester.tap(find.byKey(const Key('apply-filters')));
+    await tester.pumpAndSettle();
+    expect(find.text('Limpar filtros'), findsOneWidget);
   });
 
   testWidgets('patrimônio: ativos menos passivos e bens', (tester) async {

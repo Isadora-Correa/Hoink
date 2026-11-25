@@ -837,7 +837,7 @@ class _MobileDashboard extends ConsumerWidget {
         Text('Olá, ${user?.firstName ?? ''}!', style: HoinkText.headlineLgMobile.copyWith(color: HoinkColors.primary)),
         Text('Seu dinheiro, do seu jeito.', style: HoinkText.bodySm.copyWith(color: HoinkColors.onSurfaceVariant)),
         const SizedBox(height: 8),
-        const Align(alignment: Alignment.centerLeft, child: MonthPicker()),
+        const MonthPicker(expanded: true),
         gap,
         _BalanceHero(d, mobile: true),
         gap,

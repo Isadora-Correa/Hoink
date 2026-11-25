@@ -95,6 +95,8 @@ class FakeRepository extends HoinkRepository {
   final simulated = <Map<String, Object?>>[];
   final budgetsSaved = <(String, int, int)>[];
   List<CreditCard> cardList = [];
+  List<DebitCard> debitCardList = [];
+  final savedDebitCards = <Map<String, Object?>>[];
   final piggyActions = <(String, Map<String, Object?>)>[];
   final asked = <String>[];
   final reportQueries = <(String, Map<String, Object?>)>[];
@@ -186,6 +188,20 @@ class FakeRepository extends HoinkRepository {
 
   @override
   Future<List<CreditCard>> cards(String entityId) async => cardList;
+  @override
+  Future<List<DebitCard>> debitCards(String entityId) async => debitCardList;
+  @override
+  Future<DebitCard> saveDebitCard(String entityId, Map<String, Object?> body, {String? id}) async {
+    savedDebitCards.add(body);
+    return DebitCard.fromJson({
+      'id': 'd1',
+      'entityId': entityId,
+      'name': body['name'],
+      'account': {'id': body['accountId'], 'name': 'Conta'},
+      'archived': false,
+    });
+  }
+
   @override
   Future<CreditCard> card(String entityId, String id) async => cardList.firstWhere((c) => c.id == id);
   @override
