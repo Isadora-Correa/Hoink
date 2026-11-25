@@ -186,31 +186,13 @@ das movimentações e **nunca conta transferências internas como receita ou des
 
 ### 5.1 Visão geral
 
-```mermaid
-flowchart LR
-  subgraph Cliente
-    W[Flutter Web<br/>nginx]
-    M[Flutter Android/iOS]
-  end
-  subgraph API[API Node.js / Express]
-    MW[Middlewares<br/>helmet · CORS · métricas · auth · ambiente · idempotência · rate limit]
-    R[Rotas REST /api]
-    S[Serviços de módulo]
-    D[Domínio puro<br/>regras financeiras]
-  end
-  DB[(PostgreSQL 16)]
-  P[Prometheus]
-  BCB[(Banco Central — SGS)]
-  SEF[(Sefaz — NFC-e)]
+![Arquitetura do hoink.](docs/diagramas/arquitetura.png)
 
-  W -- HTTPS + Bearer --> MW
-  M -- HTTPS + Bearer --> MW
-  MW --> R --> S --> D
-  S -- Prisma --> DB
-  P -. GET /metrics .-> API
-  S -. CDI/Selic/IPCA .-> BCB
-  S -. consulta da nota .-> SEF
-```
+O app Flutter (Web, servido por nginx, e Android/iOS com o mesmo código) chama a **API Node.js/Express** por
+HTTPS com token Bearer. Na API, a requisição passa pelos **middlewares** (autenticação, idempotência, rate limit),
+pelas **rotas REST** `/api` e pelos serviços, que aplicam as **regras financeiras do domínio puro** e gravam no
+**PostgreSQL 16** via Prisma. Os serviços externos são o **Banco Central** (CDI, Selic e IPCA), a **Sefaz**
+(NFC-e) e o **Prometheus**, que coleta as métricas em `/metrics`.
 
 #### Componentes
 
@@ -457,7 +439,7 @@ Hoink/
 ├── perf/                         # Testes de carga (k6)
 ├── infra/postgres/init/          # Script que cria o banco de testes (hoink_test)
 ├── docs/                         # Arquitetura, deploy, testes, segurança, design e marca
-│   └── diagrams/                 #   Diagramas UML (caso de uso, classes e sequência)
+│   └── diagramas/                #   Arquitetura e diagramas UML (caso de uso, classes e sequência)
 ├── scripts/validate-structure.sh # Validação da estrutura do repositório (usada no CI)
 ├── .github/
 │   ├── workflows/                # ci.yml e cd.yml
@@ -1073,7 +1055,10 @@ Detalhes em [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ### 13.2 Pipeline de CI (`.github/workflows/ci.yml`)
 
-Executado em todo push e Pull Request:
+**Status:** ✅ pipeline verde, com todos os jobs passando (veja o selo no topo do README e a aba *Actions*).
+
+Executado em todo push na `main`, em todo Pull Request e manualmente (`workflow_dispatch`). Um novo push na mesma
+branch cancela a execução anterior (`concurrency`), e o CI tem apenas permissão de leitura do repositório.
 
 ```mermaid
 flowchart LR
@@ -1095,8 +1080,17 @@ Os jobs sem seta de entrada rodam em paralelo; os demais aguardam os jobs dos qu
 | App Android | Compila o APK e publica como artefato |
 | E2E | Testes Playwright contra a API e o front reais |
 | Performance | Teste de carga k6 com limites de latência e erros |
-| Segurança | Auditoria de dependências e varredura Trivy (vulnerabilidades e segredos) |
+| Segurança | `pnpm audit` (dependências de produção, nível alto) e varredura Trivy (vulnerabilidades, segredos e configuração; falha em HIGH/CRITICAL) |
 | Docker | Build das imagens da API e do front-end |
+
+#### Correções que deixaram o CI verde
+
+O job **Segurança** estava falhando e foi corrigido no commit `ba66cc2` (`fix(ci): Trivy volta a rodar e effect sem vulnerabilidade`):
+
+| Problema | Correção |
+|---|---|
+| A tag `aquasecurity/trivy-action@0.28.0` deixou de existir e o passo do Trivy não rodava | Ação fixada no **commit da v0.36.0** (`@ed142fd…`), o que também protege contra troca de tag |
+| O Trivy apontou a CVE-2026-121707 (ReDoS) no pacote `effect`, dependência do Prisma | Override no `package.json` (`"@prisma/config>effect": "^3.22.1"`) e `pnpm-lock.yaml` atualizado |
 
 ### 13.3 Pipeline de CD (`.github/workflows/cd.yml`)
 
@@ -1245,7 +1239,7 @@ Guia completo: [`CONTRIBUTING.md`](CONTRIBUTING.md).
 | [`docs/MOBILE.md`](docs/MOBILE.md) | Build e publicação Android/iOS |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | Design system, protótipos e marca |
 | [`perf/README.md`](perf/README.md) | Testes de carga |
-| [`docs/diagramas/`](docs/diagramas/) | Diagramas UML: casos de uso, classes e sequência (SD01 a SD05) |
+| [`docs/diagramas/`](docs/diagramas/) | Diagrama de arquitetura e diagramas UML: casos de uso, classes e sequência (SD01 a SD05) |
 
 ---
 
