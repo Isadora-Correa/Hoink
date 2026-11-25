@@ -69,6 +69,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                   initialType: s.uri.queryParameters['tipo'],
                   initialRecurring: s.uri.queryParameters['recorrente'] == '1',
                   initialContactId: s.uri.queryParameters['contato'],
+                  initialAccountId: s.uri.queryParameters['conta'],
                   entityId: s.uri.queryParameters['ambiente'],
                 ),
               ),

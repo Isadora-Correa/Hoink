@@ -28,12 +28,16 @@ class TransactionFormScreen extends ConsumerStatefulWidget {
     this.initialType,
     this.initialRecurring = false,
     this.initialContactId,
+    this.initialAccountId,
   });
   final String? entityId;
   final String? transactionId;
   final String? initialType;
   final bool initialRecurring;
   final String? initialContactId;
+
+  /// Conta já escolhida (ex.: "Lançar compra" de um cartão de débito).
+  final String? initialAccountId;
 
   bool get isEdit => transactionId != null;
 
@@ -66,7 +70,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _ => 'EXPENSE',
   };
   String? _entityId;
-  String? _accountId;
+  late String? _accountId = widget.initialAccountId;
   String? _toAccountId;
   String? _categoryId;
   late String? _contactId = widget.initialContactId;
@@ -785,17 +789,27 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final c in visibleCats)
-                    _CategoryChip(
-                      category: c,
-                      active: c.id == _categoryId,
-                      onTap: () => setState(() => _categoryId = c.id == _categoryId ? null : c.id),
-                    ),
-                ],
+              // Grade com colunas iguais: mesmo espaço entre todas; a última linha fica centralizada.
+              LayoutBuilder(
+                builder: (context, box) {
+                  const gap = 10.0;
+                  final cols = ((box.maxWidth + gap) / (96 + gap)).floor().clamp(3, 6);
+                  final w = (box.maxWidth - (cols - 1) * gap) / cols;
+                  return Wrap(
+                    spacing: gap,
+                    runSpacing: gap,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      for (final c in visibleCats)
+                        _CategoryChip(
+                          category: c,
+                          width: w,
+                          active: c.id == _categoryId,
+                          onTap: () => setState(() => _categoryId = c.id == _categoryId ? null : c.id),
+                        ),
+                    ],
+                  );
+                },
               ),
             ],
           );
@@ -1008,34 +1022,46 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       ],
     );
 
-    final actions = Row(
+    // Salvar e Cancelar grandes, na largura toda, no fim do formulário.
+    final actions = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.isEdit) ...[
-          IconButton(
-            tooltip: 'Excluir',
-            onPressed: () => _delete(entityId),
-            icon: const Icon(Symbols.delete, color: HoinkColors.error),
+        if (widget.isEdit)
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: () => _delete(entityId),
+                style: TextButton.styleFrom(foregroundColor: HoinkColors.error),
+                icon: const Icon(Symbols.delete, size: 18),
+                label: const Text('Excluir'),
+              ),
+              const Spacer(),
+              if (_original?.isOpen ?? false)
+                TextButton.icon(
+                  onPressed: () async {
+                    await settleDialog(context, ref, _original!);
+                    if (mounted) _load();
+                  },
+                  icon: const Icon(Symbols.check_circle),
+                  label: const Text('Registrar pagamento'),
+                ),
+            ],
           ),
-          if (_original?.isOpen ?? false)
-            TextButton.icon(
-              onPressed: () async {
-                await settleDialog(context, ref, _original!);
-                if (mounted) _load();
-              },
-              icon: const Icon(Symbols.check_circle),
-              label: const Text('Registrar pagamento'),
-            ),
-        ],
-        const Spacer(),
-        TextButton(onPressed: _close, child: const Text('Cancelar')),
-        const SizedBox(width: 12),
+        if (widget.isEdit) const SizedBox(height: 8),
         FilledButton.icon(
           key: const Key('save-transaction'),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
           onPressed: _busy || (isTransfer ? allAccounts.length < 2 : accounts.isEmpty) ? null : () => _submit(entityId),
           icon: const Icon(Symbols.check, size: 18),
           label: Text(
             _busy ? 'Salvando...' : (isTransfer ? 'Transferir' : 'Salvar ${_type == 'INCOME' ? 'receita' : 'despesa'}'),
           ),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+          onPressed: _close,
+          child: const Text('Cancelar'),
         ),
       ],
     );
@@ -1182,8 +1208,9 @@ class _TypeTab extends StatelessWidget {
 }
 
 class _CategoryChip extends StatelessWidget {
-  const _CategoryChip({required this.category, required this.active, required this.onTap});
+  const _CategoryChip({required this.category, required this.active, required this.onTap, this.width = 104});
   final Category category;
+  final double width;
   final bool active;
   final VoidCallback onTap;
 
@@ -1196,7 +1223,7 @@ class _CategoryChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        width: 104,
+        width: width,
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
         decoration: BoxDecoration(
           color: active ? HoinkColors.pine : HoinkColors.surfaceLowest,
