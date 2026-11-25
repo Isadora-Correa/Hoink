@@ -201,6 +201,7 @@ class FakeRepository extends HoinkRepository {
       'archived': false,
     });
   }
+
   @override
   Future<CreditCard> card(String entityId, String id) async => cardList.firstWhere((c) => c.id == id);
   @override
