@@ -7,6 +7,7 @@ import 'package:hoink/core/token_storage.dart';
 import 'package:hoink/data/repository.dart';
 import 'package:hoink/main.dart';
 import 'package:hoink/state/providers.dart';
+import 'package:hoink/ui/shell/app_shell.dart';
 import 'package:hoink/ui/widgets/hoink_logo.dart';
 import 'package:hoink/ui/widgets/scope_switcher.dart';
 
@@ -87,10 +88,10 @@ void main() {
   testWidgets('layout mobile usa barra inferior e botão Novo', (tester) async {
     await pumpApp(tester, repo: FakeRepository(), token: 'token-123456789012345678901', size: const Size(400, 900));
     expect(find.text('Olá, Miguel!'), findsOneWidget);
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(HoinkBottomBar), findsOneWidget);
     // O botão "Novo" só aparece na aba de Lançamentos.
     expect(find.text('Novo'), findsNothing);
-    await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Lançamentos')));
+    await tester.tap(find.descendant(of: find.byType(HoinkBottomBar), matching: find.text('Lançamentos')));
     await tester.pumpAndSettle();
     expect(find.text('Novo'), findsOneWidget);
   });

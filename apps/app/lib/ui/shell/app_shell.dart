@@ -82,12 +82,13 @@ const sideNavGroups = <(String?, List<NavItem>)>[
 /// Todos os itens do menu (para destaque do item ativo e testes).
 final sideNav = [for (final g in sideNavGroups) ...g.$2];
 
+/// Barra inferior do celular. O item do meio (Costelinha) é o botão em destaque, elevado.
 const bottomNav = [
   NavItem('/', 'Início', Symbols.home),
   NavItem('/lancamentos', 'Lançamentos', Symbols.receipt_long),
+  NavItem('/costelinha', 'Costelinha', Symbols.psychology, pig: true),
   NavItem('/cofrinhos', 'Cofrinhos', Symbols.savings),
   NavItem('/investimentos', 'Investir', Symbols.trending_up),
-  NavItem('/costelinha', 'Costelinha', Symbols.psychology, pig: true),
 ];
 
 const desktopBreakpoint = 1024.0;
@@ -126,40 +127,245 @@ class AppShell extends ConsumerWidget {
     }
 
     final index = bottomNav.indexWhere((n) => _isActive(location, n.path));
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
+    final center = bottomNav.indexWhere((n) => n.pig);
+    // O botão do Costelinha fica fora da Scaffold para receber toques também na parte que sobe acima da barra.
+    return Stack(
+      children: [
+        Scaffold(
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                const _MobileHeader(),
+                Expanded(child: child),
+              ],
+            ),
+          ),
+          floatingActionButton: !showFab
+              ? null
+              : FloatingActionButton.extended(
+                  onPressed: () => context.push('/lancamentos/novo'),
+                  backgroundColor: HoinkColors.pine,
+                  foregroundColor: HoinkColors.ivory,
+                  shape: const StadiumBorder(),
+                  icon: const Icon(Symbols.add),
+                  label: const Text('Novo', style: HoinkText.headlineSm),
+                ),
+          bottomNavigationBar: HoinkBottomBar(selectedIndex: index, onSelected: (i) => context.go(bottomNav[i].path)),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: safeBottom + HoinkBottomBar.height - HoinkBottomBar.buttonCenterY - HoinkBottomBar.buttonSize / 2,
+          child: Center(
+            child: _CostelinhaButton(active: index == center, onTap: () => context.go(bottomNav[center].path)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Barra inferior do celular: 4 abas + espaço central para o botão do Costelinha,
+/// com uma "bolha" arredondada saindo para cima e um degradê suave que separa a barra do conteúdo.
+class HoinkBottomBar extends StatelessWidget {
+  const HoinkBottomBar({super.key, required this.selectedIndex, required this.onSelected});
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  static const height = 70.0;
+  static const buttonSize = 46.0;
+
+  /// Centro do botão, medido a partir do topo da barra.
+  static const buttonCenterY = 18.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
+    return CustomPaint(
+      painter: const _BottomBarPainter(),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: safeBottom),
+        child: SizedBox(
+          height: height,
+          child: Row(
+            children: [
+              for (var i = 0; i < bottomNav.length; i++)
+                Expanded(
+                  child: bottomNav[i].pig
+                      ? _CenterLabel(label: bottomNav[i].label, active: i == selectedIndex, onTap: () => onSelected(i))
+                      : _BottomBarItem(item: bottomNav[i], active: i == selectedIndex, onTap: () => onSelected(i)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomBarPainter extends CustomPainter {
+  const _BottomBarPainter();
+
+  /// Bordinha branca colada no botão: círculo só um pouco maior que ele, sem "abas" largas dos lados.
+  static const _ring = 5.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final w = size.width;
+    final h = size.height;
+
+    // Degradê acima da barra: o conteúdo "some" suavemente antes da navegação.
+    const fade = 28.0;
+    final fadeRect = Rect.fromLTWH(0, -fade, w, fade);
+    canvas.drawRect(
+      fadeRect,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x00103E37), Color(0x14103E37)],
+        ).createShader(fadeRect),
+    );
+
+    // Barra + bordinha redonda em volta do botão do Costelinha.
+    final bar = Path()..addRect(Rect.fromLTWH(0, 0, w, h));
+    final ring = Path()
+      ..addOval(
+        Rect.fromCircle(
+          center: Offset(cx, HoinkBottomBar.buttonCenterY),
+          radius: HoinkBottomBar.buttonSize / 2 + _ring,
+        ),
+      );
+    final path = Path.combine(PathOperation.union, bar, ring);
+    canvas.drawShadow(path, const Color(0x55103E37), 6, false);
+    canvas.drawPath(path, Paint()..color = HoinkColors.surfaceLowest);
+  }
+
+  @override
+  bool shouldRepaint(_BottomBarPainter oldDelegate) => false;
+}
+
+class _BottomBarItem extends StatelessWidget {
+  const _BottomBarItem({required this.item, required this.active, required this.onTap});
+  final NavItem item;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      selected: active,
+      button: true,
+      child: InkResponse(
+        onTap: onTap,
+        highlightShape: BoxShape.rectangle,
+        containedInkWell: true,
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const _MobileHeader(),
-            Expanded(child: child),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 56,
+              height: 30,
+              decoration: BoxDecoration(
+                color: active ? HoinkColors.surfaceContainer : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Icon(item.icon, size: 22, color: HoinkColors.pine, fill: active ? 1 : 0),
+            ),
+            const SizedBox(height: 4),
+            _NavLabel(item.label, active: active),
           ],
         ),
       ),
-      floatingActionButton: !showFab
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: () => context.push('/lancamentos/novo'),
-              backgroundColor: HoinkColors.pine,
-              foregroundColor: HoinkColors.ivory,
-              shape: const StadiumBorder(),
-              icon: const Icon(Symbols.add),
-              label: const Text('Novo', style: HoinkText.headlineSm),
+    );
+  }
+}
+
+/// Rótulo da aba em uma linha só: encolhe em telas estreitas em vez de quebrar ("Lançamento / s").
+class _NavLabel extends StatelessWidget {
+  const _NavLabel(this.text, {required this.active});
+  final String text;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 2),
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        text,
+        maxLines: 1,
+        style: HoinkText.labelSm.copyWith(
+          color: HoinkColors.pine,
+          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
+    ),
+  );
+}
+
+/// Espaço do meio da barra: só o rótulo; o círculo fica por cima, desenhado pelo [_CostelinhaButton].
+class _CenterLabel extends StatelessWidget {
+  const _CenterLabel({required this.label, required this.active, required this.onTap});
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    onTap: onTap,
+    child: Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: ExcludeSemantics(child: _NavLabel(label, active: active)),
+      ),
+    ),
+  );
+}
+
+class _CostelinhaButton extends StatelessWidget {
+  const _CostelinhaButton({required this.active, required this.onTap});
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const size = HoinkBottomBar.buttonSize;
+    return Semantics(
+      label: 'Costelinha',
+      button: true,
+      selected: active,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: HoinkColors.pine,
+          border: Border.all(color: active ? HoinkColors.primaryFixed : HoinkColors.pine, width: 3),
+          boxShadow: [
+            BoxShadow(
+              color: HoinkColors.pine.withValues(alpha: active ? 0.45 : 0.3),
+              blurRadius: active ? 12 : 8,
+              offset: const Offset(0, 4),
             ),
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: HoinkColors.surfaceLowest,
-        // Telas fora da barra inferior (Contas, Configurações) não destacam nenhum item.
-        indicatorColor: index < 0 ? Colors.transparent : HoinkColors.surfaceContainer,
-        selectedIndex: index < 0 ? 0 : index,
-        labelTextStyle: WidgetStatePropertyAll(HoinkText.labelSm.copyWith(color: HoinkColors.pine)),
-        onDestinationSelected: (i) => context.go(bottomNav[i].path),
-        destinations: [
-          for (final n in bottomNav)
-            NavigationDestination(
-              icon: n.pig ? const PigAvatar(size: 26, background: false) : Icon(n.icon, color: HoinkColors.pine),
-              label: n.label,
-            ),
-        ],
+          ],
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: const Center(child: PigAvatar(size: 26, background: false)),
+          ),
+        ),
       ),
     );
   }
