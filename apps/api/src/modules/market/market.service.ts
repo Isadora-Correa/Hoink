@@ -19,9 +19,14 @@ const br = (iso: string) => iso.split('-').reverse().join('/');
 const fromBr = (d: string) => d.split('/').reverse().join('-');
 const addDays = (iso: string, n: number) => formatDate(new Date(parseDate(iso).getTime() + n * 86_400_000));
 
-async function fetchSgs(index: MarketIndex, from: string, to: string): Promise<{ date: string; ratePct: number }[]> {
+async function fetchSgs(
+  index: MarketIndex,
+  from: string,
+  to: string,
+  attempts = 3,
+): Promise<{ date: string; ratePct: number }[]> {
   const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.${SGS[index]}/dados?formato=json&dataInicial=${br(from)}&dataFinal=${br(to)}`;
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       const res = await fetch(url, { headers: { 'User-Agent': 'hoink/1.0', Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) });
       const text = await res.text();
@@ -34,7 +39,7 @@ async function fetchSgs(index: MarketIndex, from: string, to: string): Promise<{
     } catch (err) {
       logger.warn({ err, index, attempt }, 'SGS indisponível');
     }
-    await new Promise((r) => setTimeout(r, 1500 * attempt));
+    if (attempt < attempts) await new Promise((r) => setTimeout(r, 1500 * attempt));
   }
   throw new Error(`Não foi possível obter a série ${index} do Banco Central`);
 }
@@ -115,7 +120,10 @@ const monthsBetween = (fromMonth: string, toMonth: string) => {
  * Busca no SGS os dados posteriores ao último já guardado. Se o SGS falhar, usa a fonte de reserva
  * (BrasilAPI para CDI/Selic, IBGE para o IPCA). Falhas não derrubam nada: as telas mostram a data do último dado.
  */
-export async function syncMarketRates(indexes: MarketIndex[] = ['CDI', 'SELIC', 'IPCA']) {
+export async function syncMarketRates(
+  indexes: MarketIndex[] = ['CDI', 'SELIC', 'IPCA'],
+  { sgsAttempts = 3 }: { sgsAttempts?: number } = {},
+) {
   if (env.MARKET_DATA_SYNC !== 'true') return { skipped: true as const };
   const today = todayISO();
   const result: Record<string, number | string> = {};
@@ -127,7 +135,7 @@ export async function syncMarketRates(indexes: MarketIndex[] = ['CDI', 'SELIC', 
         result[index] = 0;
         continue;
       }
-      const rows = await fetchSgs(index, from, today);
+      const rows = await fetchSgs(index, from, today, sgsAttempts);
       const data = rows.map((r) => ({
         index,
         date: parseDate(index === 'IPCA' ? `${r.date.slice(0, 7)}-01` : r.date),
@@ -224,4 +232,32 @@ export async function currentAnnualPct(kind: 'CDI_PERCENT' | 'SELIC_PERCENT' | '
   const s = status.find((x) => x.index === (kind === 'CDI_PERCENT' ? 'CDI' : 'SELIC'));
   if (s?.ratePct === null || s?.ratePct === undefined) return null;
   return ((1 + (s.ratePct / 100) * (rateBps / 10000)) ** 252 - 1) * 100;
+}
+
+/** Intervalo mínimo entre buscas sob demanda (por instância da API). */
+const ON_DEMAND_INTERVAL_MS = 10 * 60 * 1000;
+/** Quanto a tela espera pela busca antes de responder com o que já tem. */
+const ON_DEMAND_WAIT_MS = 8_000;
+let lastOnDemandSync = 0;
+
+/** Só para testes: libera a próxima busca sob demanda. */
+export function resetOnDemandSync() {
+  lastOnDemandSync = 0;
+}
+
+/**
+ * Na Vercel a API não fica ligada: os índices dependiam só do cron diário. Quando alguém abre uma tela
+ * com índice desatualizado (ou sem dado), busca na hora — no máximo a cada 10 minutos e sem segurar a
+ * resposta mais que alguns segundos (uma tentativa no Banco Central e já vai para a fonte de reserva).
+ */
+export async function refreshStaleRates() {
+  if (env.MARKET_DATA_SYNC !== 'true') return;
+  if (Date.now() - lastOnDemandSync < ON_DEMAND_INTERVAL_MS) return;
+  const stale = (await marketStatus()).filter((s) => s.stale).map((s) => s.index);
+  if (stale.length === 0) return;
+  lastOnDemandSync = Date.now();
+  const sync = syncMarketRates(stale, { sgsAttempts: 1 }).catch((err) =>
+    logger.warn({ err }, 'Busca sob demanda dos índices falhou'),
+  );
+  await Promise.race([sync, new Promise((r) => setTimeout(r, ON_DEMAND_WAIT_MS))]);
 }

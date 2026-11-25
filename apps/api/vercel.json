@@ -10,5 +10,5 @@
     }
   },
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
-  "crons": [{ "path": "/cron/daily", "schedule": "0 9 * * *" }]
+  "crons": [{ "path": "/cron/daily", "schedule": "0 14 * * *" }]
 }
