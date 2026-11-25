@@ -607,13 +607,17 @@ enum MarketIndex {
   IPCA
 }
 
+/// BCB = SGS do Banco Central (oficial). Reservas quando o SGS falha: BRASILAPI (CDI/Selic do dia)
+/// e IBGE (IPCA mensal pelo SIDRA). O dado oficial do BCB substitui a reserva quando volta.
 enum MarketRateSource {
   BCB
   MANUAL
+  BRASILAPI
+  IBGE
 }
 
 /// Série histórica de índices. CDI e Selic: taxa diária (% ao dia útil); IPCA: variação mensal (%).
-/// Vêm do SGS do Banco Central ou são informados manualmente — nunca inventados.
+/// Vêm do SGS do Banco Central, de uma fonte de reserva ou são informados manualmente — nunca inventados.
 model MarketRate {
   id        String           @id @default(uuid()) @db.Uuid
   index     MarketIndex

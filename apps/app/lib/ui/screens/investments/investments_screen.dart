@@ -218,7 +218,11 @@ class _MarketBar extends ConsumerWidget {
             background: r.stale ? HoinkColors.tertiaryFixed : HoinkColors.surfaceLow,
             foreground: r.stale ? HoinkColors.onTertiaryFixed : HoinkColors.pine,
           ),
-        Text('Fonte: Banco Central (SGS)', style: HoinkText.bodySm.copyWith(color: HoinkColors.outline)),
+        Text(
+          // Mostra de onde veio cada dado: se o Banco Central falhou, a reserva aparece aqui.
+          'Fonte: ${{for (final r in rates) marketSourceLabels[r.source ?? 'BCB'] ?? r.source}.join(', ')}',
+          style: HoinkText.bodySm.copyWith(color: HoinkColors.outline),
+        ),
       ],
     );
   }

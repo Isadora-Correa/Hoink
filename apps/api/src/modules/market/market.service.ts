@@ -39,7 +39,82 @@ async function fetchSgs(index: MarketIndex, from: string, to: string): Promise<{
   throw new Error(`Não foi possível obter a série ${index} do Banco Central`);
 }
 
-/** Busca no SGS os dados posteriores ao último já guardado. Falhas não derrubam nada: as telas mostram a data do último dado. */
+/** Fontes de reserva: o dado oficial do SGS as substitui quando volta a responder. */
+const FALLBACK_SOURCES = ['BRASILAPI', 'IBGE'] as const;
+/** Sem nenhum dado guardado, a reserva de CDI/Selic preenche só os últimos dias (não é histórico oficial). */
+const FALLBACK_MAX_DAYS = 31;
+
+const isWeekday = (iso: string) => {
+  const dow = parseDate(iso).getUTCDay();
+  return dow !== 0 && dow !== 6;
+};
+
+/**
+ * Reserva de CDI/Selic: taxa anual vigente na BrasilAPI (que repassa o Banco Central),
+ * convertida para diária (base 252), como o SGS entrega.
+ */
+async function fetchBrasilApiDailyPct(index: 'CDI' | 'SELIC'): Promise<number> {
+  const res = await fetch('https://brasilapi.com.br/api/taxas/v1', {
+    headers: { 'User-Agent': 'hoink/1.0', Accept: 'application/json' },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) throw new Error(`BrasilAPI respondeu ${res.status}`);
+  const rows = (await res.json()) as { nome: string; valor: number }[];
+  const annual = rows.find((r) => r.nome?.toUpperCase() === index)?.valor;
+  if (typeof annual !== 'number' || !Number.isFinite(annual) || annual <= 0) throw new Error(`BrasilAPI sem a taxa ${index}`);
+  return (Math.pow(1 + annual / 100, 1 / 252) - 1) * 100;
+}
+
+/** Reserva do IPCA: variação mensal oficial no SIDRA do IBGE (tabela 1737, variável 63). */
+async function fetchIbgeIpca(months: number): Promise<{ date: string; ratePct: number }[]> {
+  const url = `https://apisidra.ibge.gov.br/values/t/1737/n1/all/v/63/p/last%20${months}`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'hoink/1.0', Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) });
+  if (!res.ok) throw new Error(`IBGE respondeu ${res.status}`);
+  const rows = (await res.json()) as { V: string; D3C: string }[];
+  // A primeira linha é o cabeçalho; meses sem divulgação vêm como "..." ou "-".
+  return rows
+    .slice(1)
+    .map((r) => ({ date: `${r.D3C.slice(0, 4)}-${r.D3C.slice(4, 6)}-01`, ratePct: Number(r.V) }))
+    .filter((r) => /^\d{4}-\d{2}-01$/.test(r.date) && Number.isFinite(r.ratePct));
+}
+
+/** Quando o SGS falha: grava o índice pela fonte de reserva sem sobrescrever dados oficiais ou manuais. */
+async function syncFromFallback(index: MarketIndex, today: string): Promise<number> {
+  const last = await prisma.marketRate.findFirst({ where: { index }, orderBy: { date: 'desc' } });
+  if (index === 'IPCA') {
+    const lastMonth = last ? formatDate(last.date).slice(0, 7) : null;
+    const months = lastMonth ? Math.max(1, Math.min(36, monthsBetween(lastMonth, today.slice(0, 7)))) : 36;
+    const rows = (await fetchIbgeIpca(months)).filter((r) => !lastMonth || r.date.slice(0, 7) > lastMonth);
+    const created = await prisma.marketRate.createMany({
+      skipDuplicates: true,
+      data: rows.map((r) => ({ index, date: parseDate(r.date), ratePct: new Prisma.Decimal(r.ratePct), source: 'IBGE' as const })),
+    });
+    return created.count;
+  }
+  const dailyPct = await fetchBrasilApiDailyPct(index);
+  const floor = addDays(today, -FALLBACK_MAX_DAYS);
+  let from = last ? addDays(formatDate(last.date), 1) : floor;
+  if (from < floor) from = floor;
+  // Mesma convenção do SGS: só dias úteis entram na série (feriados não são conhecidos aqui).
+  const days: string[] = [];
+  for (let d = from; d <= today; d = addDays(d, 1)) if (isWeekday(d)) days.push(d);
+  const created = await prisma.marketRate.createMany({
+    skipDuplicates: true,
+    data: days.map((d) => ({ index, date: parseDate(d), ratePct: new Prisma.Decimal(dailyPct.toFixed(8)), source: 'BRASILAPI' as const })),
+  });
+  return created.count;
+}
+
+const monthsBetween = (fromMonth: string, toMonth: string) => {
+  const [fy, fm] = fromMonth.split('-').map(Number) as [number, number];
+  const [ty, tm] = toMonth.split('-').map(Number) as [number, number];
+  return (ty - fy) * 12 + (tm - fm);
+};
+
+/**
+ * Busca no SGS os dados posteriores ao último já guardado. Se o SGS falhar, usa a fonte de reserva
+ * (BrasilAPI para CDI/Selic, IBGE para o IPCA). Falhas não derrubam nada: as telas mostram a data do último dado.
+ */
 export async function syncMarketRates(indexes: MarketIndex[] = ['CDI', 'SELIC', 'IPCA']) {
   if (env.MARKET_DATA_SYNC !== 'true') return { skipped: true as const };
   const today = todayISO();
@@ -53,14 +128,31 @@ export async function syncMarketRates(indexes: MarketIndex[] = ['CDI', 'SELIC', 
         continue;
       }
       const rows = await fetchSgs(index, from, today);
-      const created = await prisma.marketRate.createMany({
-        skipDuplicates: true,
-        data: rows.map((r) => ({ index, date: parseDate(index === 'IPCA' ? `${r.date.slice(0, 7)}-01` : r.date), ratePct: new Prisma.Decimal(r.ratePct), source: 'BCB' as const })),
+      const data = rows.map((r) => ({
+        index,
+        date: parseDate(index === 'IPCA' ? `${r.date.slice(0, 7)}-01` : r.date),
+        ratePct: new Prisma.Decimal(r.ratePct),
+        source: 'BCB' as const,
+      }));
+      // O oficial substitui o que a reserva gravou nas mesmas datas.
+      const created = await prisma.$transaction(async (tx) => {
+        if (data.length > 0) {
+          await tx.marketRate.deleteMany({
+            where: { index, source: { in: [...FALLBACK_SOURCES] }, date: { in: data.map((d) => d.date) } },
+          });
+        }
+        return tx.marketRate.createMany({ skipDuplicates: true, data });
       });
       result[index] = created.count;
     } catch (err) {
-      logger.warn({ err, index }, 'Falha ao sincronizar índice');
-      result[index] = 'erro';
+      logger.warn({ err, index }, 'Falha ao sincronizar índice no Banco Central; tentando a fonte de reserva');
+      try {
+        const count = await syncFromFallback(index, today);
+        result[index] = `reserva:${count}`;
+      } catch (fallbackErr) {
+        logger.warn({ err: fallbackErr, index }, 'Fonte de reserva também indisponível');
+        result[index] = 'erro';
+      }
     }
   }
   logger.info({ result }, 'Índices de mercado sincronizados');

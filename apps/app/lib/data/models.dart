@@ -1424,13 +1424,24 @@ class MarketRateStatus {
       lastDate = j['lastDate'],
       annualPct = (j['annualPct'] as num?)?.toDouble(),
       ratePct = (j['ratePct'] as num?)?.toDouble(),
+      source = j['source'] as String?,
       stale = j['stale'] as bool;
   final String index;
   final String? lastDate;
   final double? annualPct;
   final double? ratePct;
+
+  /// BCB (oficial), BRASILAPI / IBGE (reservas quando o Banco Central não responde) ou MANUAL.
+  final String? source;
   final bool stale;
 }
+
+const marketSourceLabels = {
+  'BCB': 'Banco Central (SGS)',
+  'BRASILAPI': 'BrasilAPI (reserva)',
+  'IBGE': 'IBGE (reserva)',
+  'MANUAL': 'informado manualmente',
+};
 
 // ───────────── Patrimônio ─────────────
 
