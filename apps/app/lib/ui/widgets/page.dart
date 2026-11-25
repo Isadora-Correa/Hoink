@@ -277,3 +277,98 @@ class AlertBanner extends StatelessWidget {
     ),
   );
 }
+
+/// Diálogo de formulário responsivo. No celular ocupa quase a tela toda e rola; os botões
+/// Salvar e Cancelar ficam grandes, na largura toda, no rodapé (sempre visíveis).
+class FormDialog extends StatefulWidget {
+  const FormDialog({
+    super.key,
+    required this.title,
+    required this.children,
+    required this.onSave,
+    this.saveLabel = 'Salvar',
+    this.saveKey,
+    this.width = 460,
+  });
+  final String title;
+  final List<Widget> children;
+
+  /// Retorna quando terminar; o botão fica ocupado (sem clique duplo) enquanto isso.
+  final Future<void> Function() onSave;
+  final String saveLabel;
+  final Key? saveKey;
+  final double width;
+
+  @override
+  State<FormDialog> createState() => _FormDialogState();
+}
+
+class _FormDialogState extends State<FormDialog> {
+  bool _busy = false;
+
+  Future<void> _save() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await widget.onSave();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    final pad = narrow ? 20.0 : 24.0;
+    return Dialog(
+      insetPadding: narrow
+          ? const EdgeInsets.symmetric(horizontal: 12, vertical: 20)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: widget.width),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(pad, pad, pad, 12),
+              child: Text(widget.title, style: HoinkText.headlineSm),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: pad),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: widget.children,
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(pad, 16, pad, pad),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FilledButton(
+                    key: widget.saveKey,
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                    onPressed: _busy ? null : _save,
+                    child: _busy
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        : Text(widget.saveLabel),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                    onPressed: _busy ? null : () => Navigator.pop(context),
+                    child: const Text('Cancelar'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

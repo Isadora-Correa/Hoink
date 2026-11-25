@@ -51,7 +51,7 @@ test('lista de lançamentos filtra por busca', async ({ page }) => {
   await page.goto('/lancamentos');
   await login(page, u.email);
   await expect(see(page, '2 lançamento(s) encontrados')).toBeVisible();
-  await typeInto(page, /Buscar por descrição/, 'padaria');
+  await typeInto(page, /Buscar neste mês/, 'padaria');
   await expect(see(page, '1 lançamento(s) encontrados')).toBeVisible();
   await expect(see(page, 'Padaria Central')).toBeVisible();
 });

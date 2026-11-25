@@ -361,7 +361,7 @@ class _BudgetsSection extends ConsumerWidget {
               : null,
         ),
         const SizedBox(height: 8),
-        const Align(alignment: Alignment.centerLeft, child: MonthPicker()),
+        const MonthPicker(expanded: true),
         const SizedBox(height: 12),
         budgets.when(
           loading: () => const Padding(

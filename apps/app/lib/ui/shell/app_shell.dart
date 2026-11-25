@@ -422,50 +422,71 @@ class _Sidebar extends ConsumerWidget {
   }
 }
 
-class _SideNavTile extends StatelessWidget {
+class _SideNavTile extends StatefulWidget {
   const _SideNavTile({required this.item, required this.active});
   final NavItem item;
   final bool active;
 
   @override
+  State<_SideNavTile> createState() => _SideNavTileState();
+}
+
+/// Item do menu lateral. Ativo: fundo verde com texto claro (o hover só clareia um pouco o verde).
+/// Inativo: no hover ganha um fundo verde bem suave e o texto/ícone escurecem para o verde da marca.
+class _SideNavTileState extends State<_SideNavTile> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
-    final fg = active ? HoinkColors.primaryFixed : HoinkColors.onSurfaceVariant;
+    final item = widget.item;
+    final active = widget.active;
+    final fg = active ? HoinkColors.primaryFixed : (_hover ? HoinkColors.pine : HoinkColors.onSurfaceVariant);
+    final bg = active
+        ? (_hover ? Color.lerp(HoinkColors.pine, Colors.white, 0.08)! : HoinkColors.pine)
+        : (_hover ? HoinkColors.pine.withValues(alpha: 0.06) : Colors.transparent);
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Material(
-        color: active ? HoinkColors.pine : Colors.transparent,
-        borderRadius: BorderRadius.circular(HoinkRadius.md),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(HoinkRadius.md),
-          hoverColor: HoinkColors.surfaceHigh,
-          onTap: () => context.go(item.path),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                item.pig
-                    ? const PigAvatar(size: 22, background: false)
-                    : Icon(item.icon, size: 20, color: active ? fg : (item.iconColor ?? fg)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    item.label,
-                    style: HoinkText.bodyMd.copyWith(
-                      color: active ? fg : HoinkColors.onSurfaceVariant,
-                      fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        key: Key('nav-${item.path}'),
+        child: Semantics(
+          button: true,
+          selected: active,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => context.go(item.path),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 140),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(HoinkRadius.md)),
+              child: Row(
+                children: [
+                  item.pig
+                      ? const PigAvatar(size: 22, background: false)
+                      : Icon(item.icon, size: 20, color: active || _hover ? fg : (item.iconColor ?? fg)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      item.label,
+                      style: HoinkText.bodyMd.copyWith(
+                        color: fg,
+                        fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                      ),
                     ),
                   ),
-                ),
-                if (item.badge != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: HoinkColors.tertiaryFixed,
-                      borderRadius: BorderRadius.circular(99),
+                  if (item.badge != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: HoinkColors.tertiaryFixed,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(item.badge!, style: HoinkText.labelSm.copyWith(color: HoinkColors.onTertiaryFixed)),
                     ),
-                    child: Text(item.badge!, style: HoinkText.labelSm.copyWith(color: HoinkColors.onTertiaryFixed)),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -475,7 +496,10 @@ class _SideNavTile extends StatelessWidget {
 }
 
 class MonthPicker extends ConsumerWidget {
-  const MonthPicker({super.key});
+  const MonthPicker({super.key, this.expanded = false});
+
+  /// Ocupa a largura toda, com o mês no centro e as setas nas pontas (telas de conteúdo).
+  final bool expanded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -484,7 +508,7 @@ class MonthPicker extends ConsumerWidget {
     return Container(
       decoration: BoxDecoration(color: HoinkColors.surfaceLow, borderRadius: BorderRadius.circular(999)),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
         children: [
           IconButton(
             tooltip: 'Mês anterior',
@@ -492,9 +516,11 @@ class MonthPicker extends ConsumerWidget {
             icon: const Icon(Symbols.chevron_left, size: 18),
             onPressed: () => ctrl.set(shiftMonth(month, -1)),
           ),
+          if (expanded) const Spacer(),
           const Icon(Symbols.calendar_today, size: 16, color: HoinkColors.onSurfaceVariant),
           const SizedBox(width: 6),
           Text(monthLabel(month), style: HoinkText.labelMd.copyWith(color: HoinkColors.onSurface)),
+          if (expanded) const Spacer(),
           IconButton(
             tooltip: 'Próximo mês',
             visualDensity: VisualDensity.compact,

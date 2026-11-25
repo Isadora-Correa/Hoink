@@ -187,83 +187,56 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             ],
           );
 
-    final kinds = {
-      null: 'Todos',
-      'income': 'Receitas',
-      'expense': 'Despesas',
-      'transfer': 'Transferências',
-      'recurring': 'Recorrentes',
-    };
+    // Busca + um botão "Filtros" que abre tudo num lugar só (tipo, status, conta, ordem).
+    final activeCount =
+        [f.kind, f.status, f.accountId].where((v) => v != null).length + (f.sort == 'date_desc' ? 0 : 1);
     final filters = HoinkCard(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
-            controller: _search,
-            decoration: const InputDecoration(
-              hintText: 'Buscar por descrição, contato, nota ou tag',
-              prefixIcon: Icon(Symbols.search, size: 20),
-            ),
-            onChanged: (v) {
-              _debounce?.cancel();
-              _debounce = Timer(const Duration(milliseconds: 350), () => _set(f.copyWith(q: v.trim(), page: 1)));
-            },
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          Row(
             children: [
-              for (final e in kinds.entries)
-                ChoiceChip(
-                  label: Text(e.value),
-                  selected: f.kind == e.key,
-                  showCheckmark: false,
-                  selectedColor: HoinkColors.pine,
-                  labelStyle: HoinkText.labelMd.copyWith(
-                    color: f.kind == e.key ? HoinkColors.ivory : HoinkColors.onSurface,
+              Expanded(
+                child: TextField(
+                  controller: _search,
+                  decoration: const InputDecoration(
+                    hintText: 'Buscar neste mês',
+                    prefixIcon: Icon(Symbols.search, size: 20),
                   ),
-                  backgroundColor: HoinkColors.surfaceLowest,
-                  shape: const StadiumBorder(side: BorderSide(color: HoinkColors.stroke)),
-                  onSelected: (_) => _set(f.copyWith(kind: e.key, page: 1)),
+                  onChanged: (v) {
+                    _debounce?.cancel();
+                    _debounce = Timer(const Duration(milliseconds: 350), () => _set(f.copyWith(q: v.trim(), page: 1)));
+                  },
                 ),
-              _DropdownChip<String?>(
-                icon: Symbols.filter_list,
-                value: f.status,
-                items: {
-                  null: 'Todos os status',
-                  for (final s in ['SETTLED', 'PENDING', 'PLANNED', 'PARTIAL', 'OVERDUE', 'CANCELED'])
-                    s: statusLabels[s]!,
-                },
-                onChanged: (v) => _set(f.copyWith(status: v, page: 1)),
               ),
-              if (accounts.isNotEmpty)
-                _DropdownChip<String?>(
-                  icon: Symbols.account_balance,
-                  value: f.accountId,
-                  items: {null: 'Todas as contas', for (final a in accounts) a.id: a.name},
-                  onChanged: (v) => _set(f.copyWith(accountId: v, page: 1)),
+              const SizedBox(width: 8),
+              Badge(
+                isLabelVisible: activeCount > 0,
+                label: Text('$activeCount'),
+                backgroundColor: HoinkColors.pigPink,
+                textColor: HoinkColors.pine,
+                child: FilledButton.tonalIcon(
+                  key: const Key('txn-filters'),
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
+                  onPressed: () async {
+                    final next = await showTxnFilters(context, f, accounts);
+                    if (next != null) _set(next.copyWith(page: 1));
+                  },
+                  icon: const Icon(Symbols.tune, size: 18),
+                  label: const Text('Filtros'),
                 ),
-              ActionChip(
-                avatar: const Icon(Symbols.event_repeat, size: 16),
-                label: const Text('Gerenciar recorrências'),
-                onPressed: () => context.go('/recorrencias'),
-              ),
-              _DropdownChip<String>(
-                icon: Symbols.swap_vert,
-                value: f.sort,
-                items: const {
-                  'date_desc': 'Mais recentes',
-                  'date_asc': 'Mais antigos',
-                  'amount_desc': 'Maior valor',
-                  'amount_asc': 'Menor valor',
-                },
-                onChanged: (v) => _set(f.copyWith(sort: v, page: 1)),
               ),
             ],
           ),
+          if (activeCount > 0)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => _set(TxnFilter(q: f.q)),
+                child: const Text('Limpar filtros'),
+              ),
+            ),
         ],
       ),
     );
@@ -365,10 +338,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                         ),
                     ],
                   ),
-                  if (!wide) ...[
-                    const SizedBox(height: 8),
-                    const Align(alignment: Alignment.centerLeft, child: MonthPicker()),
-                  ],
+                  if (!wide) ...[const SizedBox(height: 8), const MonthPicker(expanded: true)],
                   const SizedBox(height: 16),
                   kpis,
                   const SizedBox(height: 16),
@@ -561,33 +531,128 @@ class _MiniKpi extends StatelessWidget {
   }
 }
 
-class _DropdownChip<T> extends StatelessWidget {
-  const _DropdownChip({required this.icon, required this.value, required this.items, required this.onChanged});
-  final IconData icon;
-  final T value;
-  final Map<T, String> items;
-  final ValueChanged<T> onChanged;
+const _kindLabels = {
+  null: 'Todos',
+  'income': 'Receitas',
+  'expense': 'Despesas',
+  'transfer': 'Transferências',
+  'recurring': 'Recorrentes',
+};
+const _sortLabels = {
+  'date_desc': 'Mais recentes',
+  'date_asc': 'Mais antigos',
+  'amount_desc': 'Maior valor',
+  'amount_asc': 'Menor valor',
+};
 
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12),
-    decoration: BoxDecoration(color: HoinkColors.surfaceLow, borderRadius: BorderRadius.circular(999)),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: HoinkColors.onSurfaceVariant),
-        const SizedBox(width: 6),
-        DropdownButtonHideUnderline(
-          child: DropdownButton<T>(
-            value: value,
-            isDense: true,
-            style: HoinkText.labelMd.copyWith(color: HoinkColors.onSurface),
-            borderRadius: BorderRadius.circular(HoinkRadius.md),
-            items: [for (final e in items.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
-            onChanged: (v) => onChanged(v as T),
+/// Filtros de lançamentos num painel só. Devolve o filtro novo (ou null se fechar sem aplicar).
+Future<TxnFilter?> showTxnFilters(BuildContext context, TxnFilter current, List<Account> accounts) =>
+    showModalBottomSheet<TxnFilter>(
+      context: context,
+      // Acima da barra de navegação e do botão "+ Novo".
+      useRootNavigator: true,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: HoinkColors.surfaceLowest,
+      constraints: const BoxConstraints(maxWidth: 560),
+      builder: (ctx) {
+        var f = current;
+        return StatefulBuilder(
+          builder: (ctx, setState) => SafeArea(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(ctx).bottom),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Filtros', style: HoinkText.headlineSm),
+                  const SizedBox(height: 16),
+                  Text('Tipo', style: HoinkText.labelMd),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final e in _kindLabels.entries)
+                        ChoiceChip(
+                          label: Text(e.value),
+                          selected: f.kind == e.key,
+                          showCheckmark: false,
+                          selectedColor: HoinkColors.pine,
+                          labelStyle: HoinkText.labelMd.copyWith(
+                            color: f.kind == e.key ? HoinkColors.ivory : HoinkColors.onSurface,
+                          ),
+                          backgroundColor: HoinkColors.surfaceLowest,
+                          shape: const StadiumBorder(side: BorderSide(color: HoinkColors.stroke)),
+                          onSelected: (_) => setState(() => f = f.copyWith(kind: e.key)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String?>(
+                    isExpanded: true,
+                    initialValue: f.status,
+                    decoration: const InputDecoration(labelText: 'Status'),
+                    items: [
+                      const DropdownMenuItem<String?>(value: null, child: Text('Todos os status')),
+                      for (final s in ['SETTLED', 'PENDING', 'PLANNED', 'PARTIAL', 'OVERDUE', 'CANCELED'])
+                        DropdownMenuItem<String?>(value: s, child: Text(statusLabels[s]!)),
+                    ],
+                    onChanged: (v) => setState(() => f = f.copyWith(status: v)),
+                  ),
+                  if (accounts.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String?>(
+                      isExpanded: true,
+                      initialValue: f.accountId,
+                      decoration: const InputDecoration(labelText: 'Conta'),
+                      items: [
+                        const DropdownMenuItem<String?>(value: null, child: Text('Todas as contas')),
+                        for (final a in accounts)
+                          DropdownMenuItem<String?>(
+                            value: a.id,
+                            child: Text(a.name, overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => f = f.copyWith(accountId: v)),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    initialValue: f.sort,
+                    decoration: const InputDecoration(labelText: 'Ordenar por'),
+                    items: [for (final e in _sortLabels.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+                    onChanged: (v) => setState(() => f = f.copyWith(sort: v)),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      icon: const Icon(Symbols.event_repeat, size: 18),
+                      label: const Text('Gerenciar recorrências'),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        context.go('/recorrencias');
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    key: const Key('apply-filters'),
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+                    onPressed: () => Navigator.pop(ctx, f),
+                    child: const Text('Aplicar'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                    onPressed: () => Navigator.pop(ctx, TxnFilter(q: current.q)),
+                    child: const Text('Limpar filtros'),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        );
+      },
+    );
