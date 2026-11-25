@@ -3,6 +3,7 @@ import {
   isAllowedSefazUrl,
   isCaptchaPage,
   parseQrContent,
+  publicConsultUrl,
   parseSefazHtml,
   suggestCategory,
   type ReceiptItem,
@@ -14,16 +15,54 @@ import { prisma } from '../../lib/prisma';
 const MAX_BYTES = 1_000_000;
 const TIMEOUT_MS = 10_000;
 
-/** Busca a página de consulta da Sefaz seguindo só redirecionamentos para domínios permitidos. */
+/** Tentativas por requisição: o portal da Sefaz-SP derruba conexões de vez em quando ("connection reset"). */
+const ATTEMPTS = 5;
+const RETRY_DELAY_MS = 500;
+
+/** fetch com novas tentativas em falha de rede ou erro 5xx do portal. */
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      if (res.status < 500 || attempt === ATTEMPTS) return res;
+      lastError = new Error(`Sefaz respondeu ${res.status}`);
+    } catch (err) {
+      lastError = err;
+    }
+    logger.warn({ err: lastError, attempt }, 'Consulta à Sefaz falhou; tentando de novo');
+    if (attempt < ATTEMPTS) await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
+  }
+  throw lastError;
+}
+
+/**
+ * Busca a página de consulta da Sefaz seguindo só redirecionamentos para domínios permitidos.
+ * Guarda os cookies entre os passos como um navegador: o firewall do portal de SP (F5, cookie `TS01…`)
+ * entrega um cookie no redirecionamento de `/qrcode` e derruba a conexão seguinte que vier sem ele.
+ */
 async function fetchSefaz(url: string): Promise<string | null> {
   let current = url;
+  const jar = new Map<string, Map<string, string>>();
   for (let hop = 0; hop < 4; hop++) {
     if (!isAllowedSefazUrl(current)) return null;
-    const res = await fetch(current, {
+    const host = new URL(current).hostname;
+    const cookies = jar.get(host);
+    const res = await fetchWithRetry(current, {
       redirect: 'manual',
-      headers: { 'User-Agent': 'Mozilla/5.0 (hoink; leitura de NFC-e)', Accept: 'text/html' },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (hoink; leitura de NFC-e)',
+        Accept: 'text/html',
+        ...(cookies?.size ? { Cookie: [...cookies].map(([k, v]) => `${k}=${v}`).join('; ') } : {}),
+      },
     });
+    for (const sc of res.headers.getSetCookie?.() ?? []) {
+      const pair = sc.split(';', 1)[0]!;
+      const eq = pair.indexOf('=');
+      if (eq <= 0) continue;
+      if (!jar.has(host)) jar.set(host, new Map());
+      jar.get(host)!.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+    }
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get('location');
       if (!location) return null;
@@ -80,6 +119,8 @@ export interface ReceiptPreview {
   captcha: boolean;
   /** Link oficial da nota, para a pessoa conferir o valor no site da Fazenda. */
   sefazUrl: string | null;
+  /** Veio só a chave digitada (sem o link do QR Code): a Sefaz não abre a nota sem o hash do QR. */
+  keyOnly: boolean;
   alreadyRegistered: boolean;
 }
 
@@ -129,7 +170,8 @@ export async function previewReceipt(entityId: string, qr: string): Promise<Rece
     suggestedCategoryName: category?.name ?? null,
     source: page ? 'SEFAZ' : 'QR',
     captcha,
-    sefazUrl: info.url,
+    sefazUrl: info.url ?? publicConsultUrl(info.uf),
+    keyOnly: info.url === null,
     alreadyRegistered: existing > 0,
   };
 }

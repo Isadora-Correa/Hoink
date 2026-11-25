@@ -35,6 +35,69 @@ describe('nota fiscal (NFC-e)', () => {
     expect((await u.api.post(`${base}/receipts/preview`, { qr: 'https://exemplo.com/qualquer-coisa' })).body.error.code).toBe('INVALID_RECEIPT');
   });
 
+  it('só a chave digitada (com espaços): avisa que falta o QR e aponta a consulta pública do estado', async () => {
+    const k = key();
+    const spaced = k.replace(/(\d{4})/g, '$1 ').trim();
+    const res = await u.api.post(`${base}/receipts/preview`, { qr: spaced });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      accessKey: k,
+      uf: 'SP',
+      issuedMonth: '2026-10',
+      source: 'QR',
+      keyOnly: true,
+      totalCents: null,
+      sefazUrl: 'https://www.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaPublica.aspx',
+    });
+  });
+
+  it('devolve no redirecionamento o cookie do firewall da Sefaz-SP (sem ele a conexão cai)', async () => {
+    env.RECEIPT_LOOKUP = 'true';
+    const k = key();
+    const seen: (string | undefined)[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.includes('brasilapi')) return new Response('{}', { status: 404 });
+        const cookie = (init?.headers as Record<string, string> | undefined)?.Cookie;
+        seen.push(cookie);
+        if (url.includes('/qrcode')) {
+          return new Response(null, {
+            status: 302,
+            headers: {
+              location: `https://www.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx?p=${k}|2|1|1|H`,
+              'set-cookie': 'TS011048b6=abc123; Path=/; Secure; HttpOnly',
+            },
+          });
+        }
+        if (cookie !== 'TS011048b6=abc123') throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } });
+        return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
+      }),
+    );
+    const res = await u.api.post(`${base}/receipts/preview`, { qr: `https://www.nfce.fazenda.sp.gov.br/qrcode?p=${k}|2|1|1|H` });
+    expect(seen).toEqual([undefined, 'TS011048b6=abc123']);
+    expect(res.body.data).toMatchObject({ source: 'SEFAZ', totalCents: 3500 });
+  });
+
+  it('Sefaz derruba a conexão: tenta de novo e lê a nota em vez de desistir', async () => {
+    env.RECEIPT_LOOKUP = 'true';
+    const k = key();
+    let sefazCalls = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('brasilapi')) return new Response('{}', { status: 404 });
+        sefazCalls++;
+        // As duas primeiras tentativas caem como no portal de SP ("connection reset").
+        if (sefazCalls <= 2) throw new TypeError('fetch failed', { cause: { code: 'ECONNRESET' } });
+        return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
+      }),
+    );
+    const res = await u.api.post(`${base}/receipts/preview`, { qr: `https://www.nfce.fazenda.sp.gov.br/qrcode?p=${k}|2|1|1|H` });
+    expect(sefazCalls).toBe(3);
+    expect(res.body.data).toMatchObject({ source: 'SEFAZ', totalCents: 3500, issuedAt: '2026-10-15', keyOnly: false });
+  });
+
   it('consulta a página da Sefaz e sugere a categoria; não segue redirecionamento para fora do gov.br', async () => {
     env.RECEIPT_LOOKUP = 'true';
     const k = key();

@@ -102,6 +102,18 @@ export function parseQrContent(text: string): QrInfo | null {
 }
 
 /**
+ * Consulta pública por chave (com verificação "não sou robô"): só a pessoa abre, no navegador dela.
+ * Sem o QR Code não há o hash da nota, e a Sefaz não mostra os dados para um robô.
+ */
+const PUBLIC_CONSULT_BY_UF: Record<string, string> = {
+  SP: 'https://www.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaPublica.aspx',
+};
+
+export function publicConsultUrl(uf: string | null): string | null {
+  return uf ? (PUBLIC_CONSULT_BY_UF[uf] ?? null) : null;
+}
+
+/**
  * Só consultamos páginas de Secretarias da Fazenda (domínios gov.br) — o servidor nunca busca
  * endereços arbitrários informados pelo usuário (proteção contra SSRF).
  */

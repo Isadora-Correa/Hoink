@@ -169,7 +169,10 @@ class _PreviewView extends StatelessWidget {
                 Text('Falta só o valor', style: HoinkText.labelMd),
                 const SizedBox(height: 4),
                 Text(
-                  p.captcha
+                  p.keyOnly
+                      ? 'Só com a chave a Fazenda não libera o valor, a data e os itens. Leia o QR Code do cupom '
+                            'pela câmera (ou cole o link dele) para preencher tudo, ou digite o total no formulário.'
+                      : p.captcha
                       ? 'O site da Fazenda deste estado pede uma verificação "não sou robô", então a hoink. não consegue ler o valor sozinha. Confira o total no cupom (ou no site) e digite no formulário.'
                       : 'Não conseguimos abrir a nota no site da Fazenda. Digite o total do cupom no formulário.',
                   style: HoinkText.bodySm,

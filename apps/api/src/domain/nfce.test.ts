@@ -74,6 +74,25 @@ describe('NFC-e — página de consulta da Sefaz (layout padrão)', () => {
     ]);
   });
 
+  it('página real da Sefaz-SP (itens por peso, "Consumidor não identificado")', () => {
+    const real = readFileSync(join(__dirname, '../../tests/fixtures/nfce-sp-real.html'), 'utf8');
+    const r = parseSefazHtml(real);
+    expect(r).toMatchObject({
+      issuerName: 'SUPERMERCADOS MAMBO LTDA.',
+      cnpj: '71676316000308',
+      issuedAt: '2020-02-29',
+      totalCents: 912,
+      paymentMethod: 'Outros',
+    });
+    expect(r.items).toEqual([
+      { description: 'SALAME ITA AURORA FAT kg', quantity: 0.05, unit: 'KG', unitPriceCents: 6700, totalCents: 340 },
+      { description: 'LOMBO COZ AURORA FAT kg', quantity: 0.056, unit: 'KG', unitPriceCents: 3700, totalCents: 212 },
+      { description: 'COPA AURORA FAT kg', quantity: 0.05, unit: 'KG', unitPriceCents: 7100, totalCents: 360 },
+    ]);
+    // O total da nota bate com a soma dos itens.
+    expect(r.items.reduce((s, i) => s + i.totalCents, 0)).toBe(r.totalCents);
+  });
+
   it('página desconhecida (captcha) não inventa dados', () => {
     expect(parseSefazHtml('<html><body>Digite o código da imagem</body></html>')).toEqual({
       issuerName: null,

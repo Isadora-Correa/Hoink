@@ -1525,6 +1525,7 @@ class ReceiptPreview {
       source = j['source'],
       captcha = (j['captcha'] as bool?) ?? false,
       sefazUrl = j['sefazUrl'],
+      keyOnly = (j['keyOnly'] as bool?) ?? false,
       alreadyRegistered = j['alreadyRegistered'] as bool;
   final String accessKey;
   final String? issuerName;
@@ -1544,6 +1545,9 @@ class ReceiptPreview {
   /// A Fazenda do estado pediu verificação anti-robô: o valor precisa ser digitado.
   final bool captcha;
   final String? sefazUrl;
+
+  /// Só a chave digitada: sem o QR Code a Fazenda não libera valor, data e itens.
+  final bool keyOnly;
   final bool alreadyRegistered;
 
   /// Itens como texto para as observações do lançamento.
