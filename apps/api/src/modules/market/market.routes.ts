@@ -4,11 +4,12 @@ import { manualRateSchema } from '../../contracts';
 import { AppError } from '../../lib/errors';
 import { authOf, parse } from '../../lib/http';
 import { gamificationProfile } from '../piggy/piggy.service';
-import { marketStatus, setManualRate } from './market.service';
+import { marketStatus, refreshStaleRates, setManualRate } from './market.service';
 
 /** Índices de mercado (CDI, Selic, IPCA): situação e taxa manual quando o Banco Central não responde. */
 export const marketRouter = Router();
 marketRouter.get('/', async (_req, res) => {
+  await refreshStaleRates();
   res.json({ data: await marketStatus() });
 });
 /** Índices são compartilhados por todos os usuários: só a administração (ADMIN_TOKEN) lança manualmente. */
