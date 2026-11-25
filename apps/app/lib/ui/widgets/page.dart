@@ -107,7 +107,15 @@ class EntityHeading extends StatelessWidget {
 }
 
 /// Executa uma ação de escrita, recarrega os dados e mostra o resultado.
+/// Telas/diálogos com uma ação em andamento. Cliques repetidos em "Salvar" enquanto ela roda são
+/// ignorados (devolvem false): sem isso, cada clique, ao terminar, fechava uma tela a mais e o app
+/// ficava em branco.
+final _runningActions = <Object>{};
+
 Future<bool> runAction(BuildContext context, WidgetRef ref, Future<void> Function() action, String success) async {
+  // Só a identidade da tela serve de chave da trava (nada é desenhado com ela depois do await).
+  final Object key = context;
+  if (!_runningActions.add(key)) return false;
   try {
     await action();
     ref.read(dataVersionProvider.notifier).bump();
@@ -116,6 +124,8 @@ Future<bool> runAction(BuildContext context, WidgetRef ref, Future<void> Functio
   } catch (e) {
     if (context.mounted) showError(context, e);
     return false;
+  } finally {
+    _runningActions.remove(key);
   }
 }
 

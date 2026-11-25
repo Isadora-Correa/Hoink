@@ -367,6 +367,7 @@ Future<void> showAccountForm(BuildContext context, WidgetRef ref, String entityI
                     ref.read(dataVersionProvider.notifier).bump();
                     if (ctx.mounted) Navigator.pop(ctx);
                   } on ApiException catch (e) {
+                    if (e.isDuplicate) return;
                     setState(() => error = e.message);
                   }
                 },

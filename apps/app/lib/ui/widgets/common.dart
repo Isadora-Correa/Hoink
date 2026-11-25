@@ -326,6 +326,8 @@ class EmptyState extends StatelessWidget {
 }
 
 void showError(BuildContext context, Object e) {
+  // Clique repetido enquanto o primeiro envio está a caminho: nada a avisar.
+  if (e is ApiException && e.isDuplicate) return;
   final message = e is ApiException ? e.message : (e is String ? e : 'Erro inesperado: $e');
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }

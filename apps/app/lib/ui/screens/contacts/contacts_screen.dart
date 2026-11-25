@@ -315,6 +315,7 @@ Future<void> showContactForm(
                       ref.read(dataVersionProvider.notifier).bump();
                       if (ctx.mounted) Navigator.pop(ctx);
                     } on ApiException catch (e) {
+                      if (e.isDuplicate) return;
                       setState(() => error = e.fieldErrors.values.firstOrNull?.first ?? e.message);
                     }
                   },

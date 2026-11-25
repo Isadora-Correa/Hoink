@@ -297,6 +297,8 @@ class _DebtFormScreenState extends ConsumerState<DebtFormScreen> {
   }
 
   Future<void> _save() async {
+    // O botão só fica desativado no próximo quadro: cliques rápidos no mesmo instante paravam aqui.
+    if (_busy) return;
     final body = _simulationBody();
     final entityId = _entityId;
     if (body == null || entityId == null) return;
