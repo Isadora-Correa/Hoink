@@ -151,3 +151,37 @@ describe('cartões de crédito', () => {
     expect((await other.api.get(`/api/entities/${other.personalId}/cards/${card.id}`)).status).toBe(404);
   });
 });
+
+describe('cartões de débito', () => {
+  it('ficam ligados a uma conta, sem limite nem fatura, e não mexem no saldo', async () => {
+    const acc = await createAccount(u, u.personalId, 100_000, 'Mercado Pago');
+    const res = await u.api.post(`${base}/debit-cards`, {
+      name: 'Mercado Livre Débito',
+      institution: 'Mercado Pago',
+      brand: 'Visa',
+      accountId: acc.id,
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.data).toMatchObject({ name: 'Mercado Livre Débito', account: { id: acc.id }, archived: false });
+    expect(res.body.data).not.toHaveProperty('limitCents');
+    expect(await balanceOf(u, u.personalId, acc.id)).toBe(100_000);
+
+    const list = await u.api.get(`${base}/debit-cards`);
+    expect(list.body.data).toHaveLength(1);
+    // O débito não aparece entre os cartões de crédito.
+    expect((await u.api.get(`${base}/cards`)).body.data).toHaveLength(0);
+
+    const archived = await u.api.post(`${base}/debit-cards/${res.body.data.id}/archive`);
+    expect(archived.body.data.archived).toBe(true);
+    expect((await u.api.get(`${base}/debit-cards`)).body.data).toHaveLength(0);
+  });
+
+  it('recusa conta de outro ambiente e cartão de crédito como conta vinculada', async () => {
+    const other = await createAccount(u, u.businessId, 0, 'Conta PJ');
+    const res = await u.api.post(`${base}/debit-cards`, { name: 'Débito', accountId: other.id });
+    expect(res.status).toBe(422);
+    const credit = await newCard();
+    const res2 = await u.api.post(`${base}/debit-cards`, { name: 'Débito', accountId: credit.id });
+    expect(res2.status).toBe(422);
+  });
+});
